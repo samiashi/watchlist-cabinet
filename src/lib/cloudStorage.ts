@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { supabase, supabaseUrl } from "./supabase";
 import { maxWatchImages, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./types";
 import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
 
@@ -29,6 +29,10 @@ interface ShareLinkRow {
   token: string;
 }
 
+interface WatchRowOptions {
+  keepStorageUrls?: boolean;
+}
+
 export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
   if (!supabase) throw new Error("Supabase is not configured.");
 
@@ -39,7 +43,7 @@ export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
     .order("created_at", { ascending: false });
 
   if (watchesResult.error) throw watchesResult.error;
-  const watches = ((watchesResult.data || []) as WatchRow[]).map(fromWatchRow);
+  const watches = ((watchesResult.data || []) as WatchRow[]).map((row, index) => fromWatchRow(row, index));
 
   return {
     watches: await withSignedStorageImages(watches),
@@ -118,13 +122,13 @@ export async function loadSharedWishlist(token: string): Promise<Watch[]> {
   });
 
   if (error) throw error;
-  return ((data || []) as WatchRow[]).map(fromWatchRow);
+  return ((data || []) as WatchRow[]).map((row, index) => fromWatchRow(row, index));
 }
 
-function fromWatchRow(row: WatchRow, index: number): Watch {
+function fromWatchRow(row: WatchRow, index: number, options: WatchRowOptions = {}): Watch {
   const rawImageUrls = normalizeImageUrls(row.image_urls, row.image_url);
-  const externalImageUrls = rawImageUrls.filter((url) => !isStorageImageUrl(url));
-  const legacyStoragePaths = rawImageUrls.map(getStorageImagePath).filter(Boolean);
+  const externalImageUrls = rawImageUrls.filter((url) => options.keepStorageUrls || !isStorageImageUrl(url));
+  const legacyStoragePaths = options.keepStorageUrls ? [] : rawImageUrls.map(getStorageImagePath).filter(Boolean);
   const imagePaths = normalizeImagePaths(row.image_paths, legacyStoragePaths);
   const imageUrls = normalizeImageUrls(externalImageUrls, null, makeWatchImage(row.category, index));
 
@@ -184,7 +188,11 @@ export async function signWatchImagePaths(paths: string[]) {
   const { data, error } = await client.storage.from(watchImageBucket).createSignedUrls(imagePaths, signedImageExpiresIn);
   if (error) throw new Error(`Image signing failed: ${error.message}`);
 
-  return imagePaths.map((path, index) => data?.[index]?.signedUrl || data?.find((item) => item.path === path)?.signedUrl || "");
+  return imagePaths.map((path, index) => {
+    const indexedUrl = getSignedUrl(data?.[index]);
+    const matchingUrl = indexedUrl || getSignedUrl(data?.find((item) => item.path === path));
+    return toAbsoluteStorageUrl(matchingUrl, supabaseUrl);
+  });
 }
 
 async function withSignedStorageImages(watches: Watch[]) {
@@ -225,11 +233,28 @@ async function loadSharedWishlistFromApi(token: string) {
     }
 
     if (!Array.isArray(body?.watches)) return null;
-    return (body.watches as WatchRow[]).map(fromWatchRow);
+    return (body.watches as WatchRow[]).map((row, index) => fromWatchRow(row, index, { keepStorageUrls: true }));
   } catch (error) {
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") return null;
     throw error;
   }
+}
+
+function getSignedUrl(value: unknown) {
+  if (!value || typeof value !== "object") return "";
+  const item = value as { signedUrl?: unknown; signedURL?: unknown };
+  return typeof item.signedUrl === "string" ? item.signedUrl : typeof item.signedURL === "string" ? item.signedURL : "";
+}
+
+function toAbsoluteStorageUrl(value: string, baseUrl: string | undefined) {
+  const url = value.trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (!baseUrl) return url;
+
+  const base = baseUrl.replace(/\/+$/, "");
+  const path = url.replace(/^\/+/, "");
+  return `${base}/${path.startsWith("storage/v1/") ? path : `storage/v1/${path}`}`;
 }
 
 function cleanFileName(value: string) {

@@ -73,7 +73,9 @@ export default async function handler(request, response) {
     }
 
     allPaths.forEach((path, index) => {
-      const signedUrl = signedResult.data?.[index]?.signedUrl;
+      const indexedUrl = getSignedUrl(signedResult.data?.[index]);
+      const matchingUrl = indexedUrl || getSignedUrl(signedResult.data?.find((item) => item.path === path));
+      const signedUrl = toAbsoluteStorageUrl(matchingUrl, supabaseUrl);
       if (signedUrl) signedUrlMap.set(path, signedUrl);
     });
   }
@@ -143,14 +145,36 @@ function getStorageImagePath(value) {
   if (typeof value !== "string") return "";
 
   try {
-    const url = new URL(value);
-    const publicMarker = "/storage/v1/object/public/watch-images/";
-    const signedMarker = "/storage/v1/object/sign/watch-images/";
-    const marker = url.pathname.includes(publicMarker) ? publicMarker : url.pathname.includes(signedMarker) ? signedMarker : "";
+    const url = new URL(value, "https://storage.local");
+    const markers = [
+      "/storage/v1/object/public/watch-images/",
+      "/storage/v1/object/sign/watch-images/",
+      "/object/public/watch-images/",
+      "/object/sign/watch-images/"
+    ];
+    const marker = markers.find((item) => url.pathname.includes(item)) || "";
     if (!marker) return "";
 
     return decodeURIComponent(url.pathname.split(marker)[1] || "").replace(/^\/+/, "");
   } catch {
     return "";
   }
+}
+
+function getSignedUrl(value) {
+  if (!value || typeof value !== "object") return "";
+  if (typeof value.signedUrl === "string") return value.signedUrl;
+  if (typeof value.signedURL === "string") return value.signedURL;
+  return "";
+}
+
+function toAbsoluteStorageUrl(value, baseUrl) {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (!baseUrl) return url;
+
+  const base = baseUrl.replace(/\/+$/, "");
+  const path = url.replace(/^\/+/, "");
+  return `${base}/${path.startsWith("storage/v1/") ? path : `storage/v1/${path}`}`;
 }

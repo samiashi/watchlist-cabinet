@@ -80,10 +80,14 @@ export function getStorageImagePath(value: unknown) {
   if (typeof value !== "string") return "";
 
   try {
-    const url = new URL(value);
-    const publicMarker = "/storage/v1/object/public/watch-images/";
-    const signedMarker = "/storage/v1/object/sign/watch-images/";
-    const marker = url.pathname.includes(publicMarker) ? publicMarker : url.pathname.includes(signedMarker) ? signedMarker : "";
+    const url = new URL(value, "https://storage.local");
+    const markers = [
+      "/storage/v1/object/public/watch-images/",
+      "/storage/v1/object/sign/watch-images/",
+      "/object/public/watch-images/",
+      "/object/sign/watch-images/"
+    ];
+    const marker = markers.find((item) => url.pathname.includes(item)) || "";
     if (!marker) return "";
 
     return decodeURIComponent(url.pathname.split(marker)[1] || "").replace(/^\/+/, "");
