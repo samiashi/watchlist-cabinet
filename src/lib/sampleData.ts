@@ -8,6 +8,8 @@ const watches: Omit<Watch, "imageUrl">[] = [
     model: "Tangente 38",
     category: "Dress",
     status: "wishlist",
+    movement: "Automatic",
+    caseSize: 38,
     price: 8950,
     sourceUrl: "https://example-watch-shop.com/nomos-tangente-38",
     createdAt: "2026-05-03T09:00:00.000Z"
@@ -18,6 +20,8 @@ const watches: Omit<Watch, "imageUrl">[] = [
     model: "SPB143 Diver",
     category: "Diver",
     status: "owned",
+    movement: "Automatic",
+    caseSize: 40.5,
     price: 3600,
     sourceUrl: "https://example-watch-shop.com/seiko-spb143-diver",
     createdAt: "2026-04-16T09:00:00.000Z"
@@ -28,6 +32,8 @@ const watches: Omit<Watch, "imageUrl">[] = [
     model: "Khaki Field Mechanical",
     category: "Field",
     status: "owned",
+    movement: "Quartz",
+    caseSize: 38,
     price: 2200,
     sourceUrl: "https://example-watch-shop.com/hamilton-khaki-field-mechanical",
     createdAt: "2026-03-02T09:00:00.000Z"
@@ -38,6 +44,8 @@ const watches: Omit<Watch, "imageUrl">[] = [
     model: "PRX Chronograph",
     category: "Chronograph",
     status: "wishlist",
+    movement: "Quartz",
+    caseSize: 42,
     price: 7350,
     sourceUrl: "https://example-watch-shop.com/tissot-prx-chronograph",
     createdAt: "2026-05-22T09:00:00.000Z"
@@ -48,6 +56,8 @@ const watches: Omit<Watch, "imageUrl">[] = [
     model: "Aquascaphe GMT",
     category: "GMT",
     status: "wishlist",
+    movement: "Automatic",
+    caseSize: 39,
     price: 4400,
     sourceUrl: "https://example-watch-shop.com/baltic-aquascaphe-gmt",
     createdAt: "2026-05-24T09:00:00.000Z"
@@ -58,6 +68,8 @@ const watches: Omit<Watch, "imageUrl">[] = [
     model: "C63 Sealander",
     category: "Daily",
     status: "owned",
+    movement: "Automatic",
+    caseSize: 36,
     price: 3650,
     sourceUrl: "https://example-watch-shop.com/christopher-ward-c63-sealander",
     createdAt: "2026-02-12T09:00:00.000Z"

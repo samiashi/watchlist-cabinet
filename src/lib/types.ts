@@ -4,6 +4,7 @@ export type WatchCategory = (typeof categories)[number];
 export type WatchStatus = "owned" | "wishlist";
 export type WatchTab = "all" | WatchStatus;
 export type WatchSort = "relevance" | "price-desc" | "price-asc";
+export type WatchMovement = "Quartz" | "Automatic";
 
 export interface Watch {
   id: string;
@@ -11,6 +12,8 @@ export interface Watch {
   model: string;
   category: WatchCategory;
   status: WatchStatus;
+  movement: WatchMovement;
+  caseSize: number;
   price: number;
   sourceUrl: string;
   imageUrl: string;

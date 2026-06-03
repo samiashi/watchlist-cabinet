@@ -1,5 +1,5 @@
 import { sampleWatches } from "./sampleData";
-import type { CabinetSnapshot, Watch } from "./types";
+import type { CabinetSnapshot, Watch, WatchMovement } from "./types";
 import { makeWatchImage } from "./watchImages";
 
 const STORAGE_KEY = "watchlist-cabinet-state-v4";
@@ -44,10 +44,16 @@ function normalizeStoredWatch(watch: Watch, index: number): Watch {
     model: watch.model,
     category: watch.category,
     status: watch.status,
+    movement: normalizeMovement(watch.movement),
+    caseSize: Number(watch.caseSize) || 0,
     price: Number(watch.price) || 0,
     sourceUrl: watch.sourceUrl,
     imageUrl: watch.imageUrl || makeWatchImage(watch.category, index),
     createdAt: watch.createdAt,
     updatedAt: watch.updatedAt
   };
+}
+
+function normalizeMovement(value: unknown): WatchMovement {
+  return value === "Quartz" ? "Quartz" : "Automatic";
 }

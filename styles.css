@@ -556,7 +556,7 @@ svg {
 
 .watch-copy {
   min-width: 0;
-  height: 200px;
+  height: 222px;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -680,6 +680,29 @@ svg {
 
 .price svg {
   color: var(--gold);
+}
+
+.watch-specs {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 620;
+}
+
+.watch-specs span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.watch-specs svg {
+  color: var(--accent-soft);
 }
 
 .watch-actions {
@@ -1238,7 +1261,7 @@ svg {
   }
 
   .watch-copy {
-    height: 142px;
+    height: 164px;
     min-height: 0;
     gap: 6px;
   }
@@ -1260,6 +1283,11 @@ svg {
   .price {
     gap: 5px;
     font-size: 13px;
+  }
+
+  .watch-specs {
+    gap: 8px;
+    font-size: 11px;
   }
 
   .watch-kicker {

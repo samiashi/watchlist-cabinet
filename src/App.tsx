@@ -16,6 +16,8 @@ import {
   Pencil,
   Plane,
   Plus,
+  RotateCw,
+  Ruler,
   Save,
   Search,
   ShoppingBag,
@@ -185,6 +187,8 @@ function App() {
       model: cleanText(form.get("model")),
       category,
       status: String(form.get("status")) as WatchStatus,
+      movement: normalizeMovement(form.get("movement")),
+      caseSize: Number(form.get("caseSize")) || 0,
       price: Number(form.get("price")) || 0,
       sourceUrl: normalizeUrl(form.get("sourceUrl")),
       imageUrl: imageUrl || existing?.imageUrl || makeWatchImage(category, watches.length + 1),
@@ -548,6 +552,18 @@ function WatchRow({
             <Banknote size={16} />
             {formatCurrency(watch.price)}
           </div>
+          <div className="watch-specs">
+            <span>
+              <RotateCw size={13} />
+              {watch.movement}
+            </span>
+            {watch.caseSize ? (
+              <span>
+                <Ruler size={13} />
+                {formatCaseSize(watch.caseSize)}
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="row-meta">
           <span className="category-label">
@@ -652,6 +668,8 @@ function WatchDrawer({
     model: "",
     category: "Dress",
     status: filters.tab === "owned" ? "owned" : "wishlist",
+    movement: "Automatic",
+    caseSize: "",
     price: "",
     sourceUrl: "",
     imageUrl: ""
@@ -730,6 +748,32 @@ function WatchDrawer({
               </div>
             </fieldset>
             <div className="field">
+              <label htmlFor="movement">
+                <RotateCw size={15} />
+                Movement
+              </label>
+              <select id="movement" name="movement" defaultValue={watch.movement}>
+                <option value="Automatic">Automatic</option>
+                <option value="Quartz">Quartz</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="caseSize">
+                <Ruler size={15} />
+                Case size
+              </label>
+              <input
+                id="caseSize"
+                name="caseSize"
+                type="number"
+                min="0"
+                step="0.1"
+                defaultValue={watch.caseSize ? String(watch.caseSize) : ""}
+                placeholder="40"
+                inputMode="decimal"
+              />
+            </div>
+            <div className="field">
               <label htmlFor="price">
                 <Banknote size={15} />
                 Price (AED)
@@ -803,7 +847,9 @@ function getFilteredWatches(watches: Watch[], filters: CabinetFilters) {
     .filter((watch) => filters.tab === "all" || watch.status === filters.tab)
     .filter((watch) => {
       if (!query) return true;
-      const haystack = [watch.brand, watch.model, watch.category, watch.status, getDomain(watch.sourceUrl)].join(" ").toLowerCase();
+      const haystack = [watch.brand, watch.model, watch.category, watch.status, watch.movement, formatCaseSize(watch.caseSize), getDomain(watch.sourceUrl)]
+        .join(" ")
+        .toLowerCase();
       return haystack.includes(query);
     })
     .sort((a, b) => compareWatches(a, b, filters.sort, query));
@@ -825,10 +871,22 @@ function compareByRecency(a: Watch, b: Watch) {
   return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
 }
 
+function formatCaseSize(value: number) {
+  const size = Number(value) || 0;
+  if (!size) return "";
+  return `${Number.isInteger(size) ? size : size.toFixed(1)} mm`;
+}
+
+function normalizeMovement(value: FormDataEntryValue | string | null | undefined) {
+  return String(value) === "Quartz" ? "Quartz" : "Automatic";
+}
+
 function getWatchRelevance(watch: Watch, query: string) {
   if (!query) return 0;
 
-  const fields = [watch.brand, watch.model, watch.category, watch.status, getDomain(watch.sourceUrl)].map((value) => value.toLowerCase());
+  const fields = [watch.brand, watch.model, watch.category, watch.status, watch.movement, formatCaseSize(watch.caseSize), getDomain(watch.sourceUrl)].map((value) =>
+    value.toLowerCase()
+  );
   return fields.reduce((score, value) => {
     if (value === query) return score + 8;
     if (value.startsWith(query)) return score + 4;

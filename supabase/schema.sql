@@ -7,12 +7,32 @@ create table if not exists public.watches (
   model text not null,
   category text not null check (category in ('Dress', 'Diver', 'Field', 'Chronograph', 'GMT', 'Daily')),
   status text not null check (status in ('owned', 'wishlist')),
+  movement text not null default 'Automatic' check (movement in ('Quartz', 'Automatic')),
+  case_size_mm numeric(4, 1),
   price numeric(12, 2) not null default 0,
   source_url text not null,
   image_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.watches
+add column if not exists movement text not null default 'Automatic';
+
+alter table public.watches
+add column if not exists case_size_mm numeric(4, 1);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'watches_movement_check'
+      and conrelid = 'public.watches'::regclass
+  ) then
+    alter table public.watches
+    add constraint watches_movement_check check (movement in ('Quartz', 'Automatic'));
+  end if;
+end $$;
 
 create index if not exists watches_user_created_idx on public.watches (user_id, created_at desc);
 create index if not exists watches_user_status_idx on public.watches (user_id, status);

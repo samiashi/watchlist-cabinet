@@ -1,6 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import type { CabinetSnapshot, Watch, WatchCategory, WatchStatus } from "./types";
+import type { CabinetSnapshot, Watch, WatchCategory, WatchMovement, WatchStatus } from "./types";
 import { makeWatchImage } from "./watchImages";
 
 interface WatchRow {
@@ -10,6 +10,8 @@ interface WatchRow {
   model: string;
   category: WatchCategory;
   status: WatchStatus;
+  movement: WatchMovement | null;
+  case_size_mm: number | string | null;
   price: number | string;
   source_url: string;
   image_url: string | null;
@@ -58,6 +60,8 @@ function fromWatchRow(row: WatchRow, index: number): Watch {
     model: row.model,
     category: row.category,
     status: row.status,
+    movement: row.movement === "Quartz" ? "Quartz" : "Automatic",
+    caseSize: Number(row.case_size_mm) || 0,
     price: Number(row.price) || 0,
     sourceUrl: row.source_url,
     imageUrl: row.image_url || makeWatchImage(row.category, index),
@@ -74,6 +78,8 @@ function toWatchRow(user: User, watch: Watch): WatchRow {
     model: watch.model,
     category: watch.category,
     status: watch.status,
+    movement: watch.movement,
+    case_size_mm: watch.caseSize || null,
     price: watch.price,
     source_url: watch.sourceUrl,
     image_url: watch.imageUrl && !watch.imageUrl.startsWith("data:") ? watch.imageUrl : null,
