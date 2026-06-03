@@ -1086,20 +1086,17 @@ svg {
 
   .workspace {
     width: 100%;
-    padding: 0 16px 22px;
-    gap: 13px;
+    padding: 0 16px 28px;
+    gap: 18px;
   }
 
   .mobile-appbar {
-    position: sticky;
-    top: 0;
-    z-index: 18;
+    position: static;
     min-height: 66px;
-    margin: 0 -16px;
-    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    margin: 0 -16px 2px;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(5, 5, 6, 0.78);
-    backdrop-filter: blur(22px) saturate(1.28);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1118,7 +1115,13 @@ svg {
   }
 
   .topbar {
-    display: block;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 14px;
+    padding-top: 2px;
   }
 
   .topbar > div:first-child,
@@ -1127,6 +1130,7 @@ svg {
   }
 
   .topbar-controls {
+    width: 100%;
     min-width: 0;
     display: block;
   }
@@ -1136,7 +1140,7 @@ svg {
   }
 
   .search-box input {
-    height: 46px;
+    height: 48px;
     border-color: rgba(255, 255, 255, 0.11);
     background: rgba(118, 118, 128, 0.18);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
@@ -1182,7 +1186,8 @@ svg {
   .collection-controls {
     width: 100%;
     justify-content: space-between;
-    gap: 6px;
+    gap: 8px;
+    margin-top: 2px;
   }
 
   .sort-control {
@@ -1198,6 +1203,7 @@ svg {
 
   .content-grid {
     display: block;
+    margin-top: 2px;
   }
 
   .board {
@@ -1209,10 +1215,10 @@ svg {
   }
 
   .board-header {
-    padding: 5px 0 2px;
+    padding: 7px 0 13px;
     border-bottom: 0;
     align-items: flex-start;
-    gap: 8px;
+    gap: 11px;
     flex-wrap: wrap;
   }
 
