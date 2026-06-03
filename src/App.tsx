@@ -230,23 +230,6 @@ function App() {
     }
   }
 
-  async function toggleStatus(id: string) {
-    const watch = watches.find((item) => item.id === id);
-    if (!watch) return;
-
-    const nextWatch: Watch = {
-      ...watch,
-      status: watch.status === "owned" ? "wishlist" : "owned",
-      updatedAt: new Date().toISOString()
-    };
-
-    try {
-      await saveWatch(nextWatch);
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Status was not saved.");
-    }
-  }
-
   if (!isLoaded) {
     return <LoadingScreen />;
   }
@@ -273,7 +256,6 @@ function App() {
             tab={filters.tab}
             onEdit={openDrawer}
             onDelete={deleteWatch}
-            onToggleStatus={toggleStatus}
           />
         </div>
       </main>
@@ -510,17 +492,14 @@ function Board({
   watches,
   tab,
   onEdit,
-  onDelete,
-  onToggleStatus
+  onDelete
 }: {
   watches: Watch[];
   tab: CabinetFilters["tab"];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-  onToggleStatus: (id: string) => void;
 }) {
   const title = tab === "wishlist" ? "Wishlist" : tab === "owned" ? "Owned" : "Collection";
-  const [featuredWatch, ...remainingWatches] = watches;
 
   return (
     <section className="board" aria-label="Watch collection">
@@ -532,31 +511,16 @@ function Board({
         <ShelvingUnit size={22} />
       </div>
       {watches.length ? (
-        <div className="watch-stack" aria-label="Watches">
-          <p className="collection-label">Featured</p>
-          <WatchRow
-            watch={featuredWatch}
-            index={0}
-            featured
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onToggleStatus={onToggleStatus}
-          />
-          {remainingWatches.length ? (
-            <div className="watch-list">
-              <p className="collection-label">All watches</p>
-              {remainingWatches.map((watch, index) => (
-                <WatchRow
-                  watch={watch}
-                  index={index + 1}
-                  key={watch.id}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onToggleStatus={onToggleStatus}
-                />
-              ))}
-            </div>
-          ) : null}
+        <div className="watch-grid" aria-label="Watches">
+          {watches.map((watch, index) => (
+            <WatchRow
+              watch={watch}
+              index={index}
+              key={watch.id}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
         </div>
       ) : (
         <EmptyState />
@@ -568,24 +532,19 @@ function Board({
 function WatchRow({
   watch,
   index,
-  featured = false,
   onEdit,
-  onDelete,
-  onToggleStatus
+  onDelete
 }: {
   watch: Watch;
   index: number;
-  featured?: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-  onToggleStatus: (id: string) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
-  const nextStatusLabel = watch.status === "owned" ? "Move to wishlist" : "Mark owned";
   const sourceDomain = getDomain(watch.sourceUrl);
 
   return (
-    <article className={`watch-row is-${watch.status} ${featured ? "is-featured" : ""}`}>
+    <article className={`watch-row is-${watch.status}`}>
       <div className="shelf-visual">
         <div className="row-thumb">
           <img
@@ -596,10 +555,6 @@ function WatchRow({
               event.currentTarget.src = makeWatchImage(watch.category, index);
             }}
           />
-        </div>
-        <div className={`status-badge is-${watch.status}`}>
-          {watch.status === "owned" ? <Check size={13} /> : <Clock size={13} />}
-          {statusLabel}
         </div>
       </div>
       <div className="watch-copy">
@@ -618,6 +573,10 @@ function WatchRow({
             <CategoryGlyph category={watch.category} size={13} />
             {watch.category}
           </span>
+          <span className={`status-badge is-${watch.status}`}>
+            {watch.status === "owned" ? <Check size={13} /> : <Clock size={13} />}
+            {statusLabel}
+          </span>
           <a className="source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
             <LinkIcon size={13} />
             <span>{sourceDomain}</span>
@@ -625,10 +584,6 @@ function WatchRow({
         </div>
         <p className="watch-notes">{watch.notes || "No notes yet."}</p>
         <div className="watch-actions">
-          <button className="button" type="button" onClick={() => onToggleStatus(watch.id)} title={nextStatusLabel}>
-            {watch.status === "owned" ? <Heart size={15} /> : <Check size={15} />}
-            <span>{watch.status === "owned" ? "Wishlist" : "Owned"}</span>
-          </button>
           <div className="action-group">
             <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
               <Pencil size={16} />
@@ -733,16 +688,28 @@ function WatchDrawer({
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="status">
+            <fieldset className="field status-field">
+              <legend>
                 <Heart size={15} />
                 Status
-              </label>
-              <select id="status" name="status" defaultValue={watch.status}>
-                <option value="wishlist">Wishlist</option>
-                <option value="owned">Owned</option>
-              </select>
-            </div>
+              </legend>
+              <div className="status-toggle">
+                <label>
+                  <input type="radio" name="status" value="wishlist" defaultChecked={watch.status === "wishlist"} />
+                  <span>
+                    <Heart size={14} />
+                    Wishlist
+                  </span>
+                </label>
+                <label>
+                  <input type="radio" name="status" value="owned" defaultChecked={watch.status === "owned"} />
+                  <span>
+                    <Check size={14} />
+                    Owned
+                  </span>
+                </label>
+              </div>
+            </fieldset>
             <div className="field">
               <label htmlFor="price">
                 <Banknote size={15} />
