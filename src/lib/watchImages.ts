@@ -1,0 +1,46 @@
+import type { WatchCategory } from "./types";
+
+const categoryThemes: Record<WatchCategory, { bg: string; case: string; dial: string; strap: string; detail: string }> = {
+  Dress: { bg: "#1b1714", case: "#d5b26a", dial: "#f0dfbf", strap: "#17191d", detail: "#5d4930" },
+  Diver: { bg: "#101d24", case: "#7794a1", dial: "#102a34", strap: "#121d24", detail: "#d4e8ef" },
+  Field: { bg: "#151d15", case: "#7c8e73", dial: "#1c261b", strap: "#202718", detail: "#dfe8d4" },
+  Chronograph: { bg: "#1a191b", case: "#8d9294", dial: "#23272a", strap: "#111317", detail: "#d66b7e" },
+  GMT: { bg: "#131c24", case: "#7895a6", dial: "#17242b", strap: "#121c23", detail: "#d5b26a" },
+  Daily: { bg: "#17191d", case: "#7c838a", dial: "#20252a", strap: "#26221f", detail: "#7fb4cb" }
+};
+
+export function makeWatchImage(category: WatchCategory, seed: string | number = 0) {
+  const theme = categoryThemes[category] || categoryThemes.Daily;
+  const rotation = (Number(seed) || String(seed).length) % 12;
+  const accentX = 58 + rotation;
+  const isChronograph = category === "Chronograph";
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" role="img" aria-label="${category} watch illustration">
+      <rect width="520" height="360" fill="${theme.bg}"/>
+      <path d="M0 304 C105 254 174 313 277 271 C380 229 433 252 520 211 L520 360 L0 360 Z" fill="#f5f1ea" opacity="0.08"/>
+      <g transform="translate(260 180)">
+        <rect x="-46" y="-160" width="92" height="112" rx="22" fill="${theme.strap}"/>
+        <rect x="-44" y="48" width="88" height="132" rx="22" fill="${theme.strap}"/>
+        <rect x="-77" y="-76" width="154" height="154" rx="77" fill="${theme.case}"/>
+        <rect x="-63" y="-62" width="126" height="126" rx="63" fill="${theme.dial}"/>
+        <circle cx="0" cy="0" r="5" fill="${theme.detail}"/>
+        <g stroke="${theme.detail}" stroke-width="5" stroke-linecap="round">
+          <line x1="0" y1="0" x2="${accentX - 58}" y2="-42"/>
+          <line x1="0" y1="0" x2="37" y2="${10 + rotation}"/>
+        </g>
+        <g stroke="${theme.detail}" stroke-width="3" stroke-linecap="round">
+          <line x1="0" y1="-50" x2="0" y2="-42"/>
+          <line x1="50" y1="0" x2="42" y2="0"/>
+          <line x1="0" y1="50" x2="0" y2="42"/>
+          <line x1="-50" y1="0" x2="-42" y2="0"/>
+        </g>
+        <circle cx="-25" cy="16" r="${isChronograph ? "13" : "0"}" fill="none" stroke="${theme.detail}" stroke-width="3"/>
+        <circle cx="25" cy="16" r="${isChronograph ? "13" : "0"}" fill="none" stroke="${theme.detail}" stroke-width="3"/>
+        <rect x="-14" y="-96" width="28" height="20" rx="7" fill="${theme.case}"/>
+        <rect x="-14" y="76" width="28" height="20" rx="7" fill="${theme.case}"/>
+      </g>
+    </svg>
+  `;
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
