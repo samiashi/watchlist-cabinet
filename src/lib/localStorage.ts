@@ -2,17 +2,17 @@ import { sampleWatches } from "./sampleData";
 import type { CabinetSnapshot, Watch } from "./types";
 import { makeWatchImage } from "./watchImages";
 
-const STORAGE_KEY = "watchlist-cabinet-state-v3";
-const LEGACY_STORAGE_KEY = "watchlist-cabinet-state-v2";
+const STORAGE_KEY = "watchlist-cabinet-state-v4";
+const LEGACY_STORAGE_KEYS = ["watchlist-cabinet-state-v3", "watchlist-cabinet-state-v2"];
 
 const fallbackSnapshot: CabinetSnapshot = {
   watches: sampleWatches,
   filters: { tab: "all", category: "all", query: "" },
-  budget: 6000
+  budget: 22000
 };
 
 export function loadLocalSnapshot(): CabinetSnapshot {
-  const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+  const raw = localStorage.getItem(STORAGE_KEY) || LEGACY_STORAGE_KEYS.map((key) => localStorage.getItem(key)).find(Boolean);
 
   if (!raw) return fallbackSnapshot;
 
@@ -27,7 +27,7 @@ export function loadLocalSnapshot(): CabinetSnapshot {
         category: saved.filters?.category || "all",
         query: saved.filters?.query || ""
       },
-      budget: Number(saved.budget) || 6000
+      budget: Number(saved.budget) || 22000
     };
   } catch (error) {
     console.warn("Could not load Watchlist Cabinet state", error);

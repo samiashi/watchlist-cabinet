@@ -3,11 +3,11 @@ export function sum(values: number[]) {
 }
 
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  const amount = new Intl.NumberFormat("en-AE", {
     maximumFractionDigits: 0
   }).format(Number(value) || 0);
+
+  return `AED ${amount}`;
 }
 
 export function formatWatchCount(value: number) {

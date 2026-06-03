@@ -2,7 +2,7 @@
 
 # Watchlist Cabinet
 
-A private, mobile-first watch collecting app for tracking owned watches, wishlist watches, category gaps, and the cost of the next collection move.
+A private, mobile-first watch shelf for tracking owned watches, wishlist watches, category gaps, and the AED cost of the next collection move.
 
 ![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&labelColor=111317)
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&labelColor=111317)
@@ -12,7 +12,7 @@ A private, mobile-first watch collecting app for tracking owned watches, wishlis
 
 </div>
 
-Built for quick use on an iPhone, with a dark-only interface, simple watch entry, and optional Supabase sync for persistent storage.
+Built for quick use on an iPhone, with a dark-only shelf interface, large watch images, simple watch entry, and optional Supabase sync for persistent storage.
 
 ## Screenshots
 
@@ -30,9 +30,10 @@ Desktop layout for wider screens.
 ## Highlights
 
 - Save watches from any website with a source URL.
+- Display the collection as shelf cards with large watch images.
 - Track owned watches and wishlist watches in one view.
 - Filter by status and category: Dress, Diver, Field, Chronograph, GMT, and Daily.
-- Calculate wishlist total, owned value, budget gap, and missing category coverage.
+- Calculate wishlist total, owned value, budget gap, and missing category coverage in AED.
 - Works locally with `localStorage` when Supabase is not configured.
 - Syncs across devices with Supabase magic-link auth when env vars are present.
 - Deploys cleanly to Vercel and includes a PWA manifest/icons for phone install.

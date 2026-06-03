@@ -1,20 +1,33 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import {
+  Archive,
+  BadgeCheck,
+  Banknote,
   Calculator,
   Check,
   Clock,
   Cloud,
+  Gem,
+  Grid3X3,
   Heart,
   Link as LinkIcon,
   Loader2,
   LogOut,
+  Mountain,
   Pencil,
+  Plane,
   Plus,
   Save,
   Search,
+  ShelvingUnit,
+  ShoppingBag,
+  Sun,
+  Timer,
   Trash2,
+  WalletCards,
   Watch as WatchIcon,
+  Waves,
   X
 } from "lucide-react";
 import { deleteCloudWatch, loadCloudSnapshot, saveCloudBudget, upsertCloudWatch } from "./lib/cloudStorage";
@@ -31,7 +44,7 @@ type DrawerState = { open: false; editingId: null } | { open: true; editingId: s
 function App() {
   const [watches, setWatches] = useState<Watch[]>([]);
   const [filters, setFilters] = useState<CabinetFilters>(emptyFilters);
-  const [budget, setBudget] = useState(6000);
+  const [budget, setBudget] = useState(22000);
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, editingId: null });
   const [toast, setToast] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
@@ -129,6 +142,7 @@ function App() {
     await supabase.auth.signOut();
     setWatches([]);
     setFilters(emptyFilters);
+    setBudget(22000);
     setDrawer({ open: false, editingId: null });
   }
 
@@ -346,7 +360,7 @@ function MobileHeader({ onAdd, onSignOut }: { onAdd: () => void; onSignOut?: () 
         </div>
         <div>
           <p className="mobile-brand-title">Cabinet</p>
-          <p className="mobile-brand-note">Personal watch list</p>
+          <p className="mobile-brand-note">Shelf view</p>
         </div>
       </div>
       <div className="mobile-header-actions">
@@ -380,8 +394,8 @@ function Topbar({
   return (
     <header className="topbar">
       <div>
-        <h2 className="page-title">Collector board</h2>
-        <p className="page-note">Save watches from any shop page, track what you own, and price the wishlist before the next purchase.</p>
+        <h2 className="page-title">Shelf</h2>
+        <p className="page-note">Display the collection, check the category gaps, and price the next watch in AED.</p>
       </div>
       <div className="topbar-controls">
         <label className="search-box">
@@ -420,20 +434,26 @@ function MobileSummary({ summary }: { summary: CabinetSummary }) {
     <section className="mobile-summary-card" aria-label="Cost summary">
       <div className="mobile-summary-grid">
         <div className="mobile-total-cell is-wishlist">
-          <span>Wishlist total</span>
+          <span>
+            <ShoppingBag size={14} />
+            Wishlist
+          </span>
           <strong>{formatCurrency(summary.wishlistTotal)}</strong>
           <small>{formatWatchCount(summary.wishlistCount)}</small>
         </div>
         <div className="mobile-total-cell is-owned">
-          <span>Owned value</span>
+          <span>
+            <BadgeCheck size={14} />
+            Owned
+          </span>
           <strong>{formatCurrency(summary.ownedValue)}</strong>
           <small>{formatWatchCount(summary.ownedCount)}</small>
         </div>
       </div>
       <div className="mobile-budget-row">
         <span>
-          <Calculator size={17} />
-          Budget gap
+          <WalletCards size={17} />
+          Gap
         </span>
         <strong>{budgetLabel}</strong>
       </div>
@@ -443,9 +463,9 @@ function MobileSummary({ summary }: { summary: CabinetSummary }) {
 
 function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (filters: Partial<CabinetFilters>) => void }) {
   const tabOptions = [
-    { id: "all", label: "All" },
-    { id: "owned", label: "Owned" },
-    { id: "wishlist", label: "Wishlist" }
+    { id: "all", label: "All", icon: Grid3X3 },
+    { id: "owned", label: "Owned", icon: BadgeCheck },
+    { id: "wishlist", label: "Wishlist", icon: Heart }
   ] as const;
 
   return (
@@ -458,6 +478,7 @@ function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (f
             key={tab.id}
             onClick={() => onChange({ tab: tab.id })}
           >
+            <tab.icon size={15} />
             {tab.label}
           </button>
         ))}
@@ -468,6 +489,7 @@ function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (f
           type="button"
           onClick={() => onChange({ category: "all" })}
         >
+          <Archive size={15} />
           All categories
         </button>
         {categories.map((category) => (
@@ -477,6 +499,7 @@ function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (f
             key={category.name}
             onClick={() => onChange({ category: category.name })}
           >
+            <CategoryGlyph category={category.name} size={15} />
             {category.name}
           </button>
         ))}
@@ -498,7 +521,7 @@ function Board({
   onDelete: (id: string) => void;
   onToggleStatus: (id: string) => void;
 }) {
-  const title = tab === "wishlist" ? "Wishlist" : tab === "owned" ? "Owned watches" : "All watches";
+  const title = tab === "wishlist" ? "Wishlist shelf" : tab === "owned" ? "Owned shelf" : "Shelf";
 
   return (
     <section className="board" aria-label="Watch collection">
@@ -507,6 +530,7 @@ function Board({
           <h2 className="section-title">{title}</h2>
           <p className="section-meta">{formatWatchCount(watches.length)} saved</p>
         </div>
+        <ShelvingUnit size={22} />
       </div>
       {watches.length ? (
         <div className="watch-table" role="table" aria-label="Watches">
@@ -554,8 +578,8 @@ function WatchRow({
   const sourceDomain = getDomain(watch.sourceUrl);
 
   return (
-    <article className="watch-row" role="row">
-      <div className="watch-identity" role="cell">
+    <article className={`watch-row is-${watch.status}`} role="row">
+      <div className="shelf-visual" role="cell">
         <div className="row-thumb">
           <img
             className="watch-image"
@@ -566,27 +590,35 @@ function WatchRow({
             }}
           />
         </div>
-        <div>
+        <div className={`status-badge is-${watch.status}`}>
+          {watch.status === "owned" ? <Check size={13} /> : <Clock size={13} />}
+          {statusLabel}
+        </div>
+        <div className="shelf-ledge" aria-hidden="true" />
+      </div>
+      <div className="watch-copy" role="cell">
+        <div className="watch-topline">
+          <div>
           <div className="watch-kicker">{watch.brand}</div>
           <h3 className="watch-name">{watch.model}</h3>
-          <div className="row-meta">
-            <span className="category-label">{watch.category}</span>
-            <a className="source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
-              <LinkIcon size={13} />
-              <span>{sourceDomain}</span>
-            </a>
           </div>
-          <p className="watch-notes">{watch.notes || "No notes yet."}</p>
+          <div className="price" role="cell">
+            <Banknote size={16} />
+            {formatCurrency(watch.price)}
+          </div>
         </div>
-      </div>
-      <div className={`status-badge is-${watch.status}`} role="cell">
-        {watch.status === "owned" ? <Check size={13} /> : <Clock size={13} />}
-        {statusLabel}
-      </div>
-      <div className="price" role="cell">
-        {formatCurrency(watch.price)}
-      </div>
-      <div className="watch-actions" role="cell">
+        <div className="row-meta">
+          <span className="category-label">
+            <CategoryGlyph category={watch.category} size={13} />
+            {watch.category}
+          </span>
+          <a className="source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
+            <LinkIcon size={13} />
+            <span>{sourceDomain}</span>
+          </a>
+        </div>
+        <p className="watch-notes">{watch.notes || "No notes yet."}</p>
+        <div className="watch-actions" role="cell">
         <button className="button" type="button" onClick={() => onToggleStatus(watch.id)} title={nextStatusLabel}>
           {watch.status === "owned" ? <Heart size={15} /> : <Check size={15} />}
           <span>{watch.status === "owned" ? "Wishlist" : "Owned"}</span>
@@ -605,6 +637,7 @@ function WatchRow({
             <Trash2 size={16} />
           </button>
         </div>
+      </div>
       </div>
     </article>
   );
@@ -642,23 +675,29 @@ function CalculatorPanel({
       <div className="calculator-header">
         <div>
           <h2 className="section-title">Costs</h2>
-          <p className="section-meta">Budget and category gaps</p>
+          <p className="section-meta">AED budget and gaps</p>
         </div>
         {isCloud ? <Cloud size={22} /> : <Calculator size={22} />}
       </div>
       <div className="calculator-body">
         <div className="total-panel">
-          <div className="total-label">Wishlist total</div>
+          <div className="total-label">
+            <ShoppingBag size={14} />
+            Wishlist total
+          </div>
           <div className="total-value">{formatCurrency(summary.wishlistTotal)}</div>
           <p className="total-caption">{formatWatchCount(summary.wishlistCount)} on the wishlist</p>
         </div>
         <label className="budget-control">
-          <span>Budget</span>
+          <span>
+            <WalletCards size={14} />
+            Budget
+          </span>
           <input
             id="budgetInput"
             type="number"
             min="0"
-            step="50"
+            step="100"
             value={budget}
             inputMode="decimal"
             onChange={(event) => onBudgetChange(Number(event.target.value) || 0)}
@@ -676,13 +715,16 @@ function CalculatorPanel({
           )}
         </div>
         <div>
-          <h3 className="section-title">Category gaps</h3>
+          <h3 className="section-title">Gaps</h3>
           <div className="needs-list">
             {needed.length ? (
               needed.map((item) => (
                 <div className="need-item" key={item.name}>
                   <div className="need-title">
-                    <span>{item.name}</span>
+                    <span>
+                      <CategoryGlyph category={item.name} size={14} />
+                      {item.name}
+                    </span>
                     <span>
                       {item.owned}/{item.target}
                     </span>
@@ -776,8 +818,8 @@ function WatchDrawer({
               </select>
             </div>
             <div className="field">
-              <label htmlFor="price">Price</label>
-              <input id="price" name="price" type="number" min="0" step="1" defaultValue={String(watch.price ?? "")} placeholder="2500" inputMode="decimal" required />
+              <label htmlFor="price">Price (AED)</label>
+              <input id="price" name="price" type="number" min="0" step="1" defaultValue={String(watch.price ?? "")} placeholder="9200" inputMode="decimal" required />
             </div>
             <div className="field is-wide">
               <label htmlFor="imageUrl">Photo URL</label>
@@ -807,6 +849,23 @@ function WatchDrawer({
       </form>
     </div>
   );
+}
+
+function CategoryGlyph({ category, size = 14 }: { category: WatchCategory; size?: number }) {
+  const Icon =
+    category === "Dress"
+      ? Gem
+      : category === "Diver"
+        ? Waves
+        : category === "Field"
+          ? Mountain
+          : category === "Chronograph"
+            ? Timer
+            : category === "GMT"
+              ? Plane
+              : Sun;
+
+  return <Icon size={size} aria-hidden="true" />;
 }
 
 function getSummary(watches: Watch[], budget: number): CabinetSummary {
