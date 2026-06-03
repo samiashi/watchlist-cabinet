@@ -780,15 +780,13 @@ function ImagePreview({
         <div className="image-preview-header">
           <div>
             <p>{watch.brand}</p>
-            <div className="image-preview-title-row">
-              <h2>{watch.model}</h2>
-              <a className="preview-source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
-                <LinkIcon size={13} />
-                <span>{sourceDomain}</span>
-              </a>
-            </div>
+            <h2>{watch.model}</h2>
           </div>
           <div className="image-preview-actions">
+            <a className="preview-source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
+              <LinkIcon size={13} />
+              <span>{sourceDomain}</span>
+            </a>
             {onEdit ? (
               <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
                 <Pencil size={16} />
