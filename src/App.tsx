@@ -35,7 +35,7 @@ import {
 import { deleteCloudWatch, loadCloudSnapshot, saveCloudBudget, upsertCloudWatch } from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
-import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { configuredAuthUsername, isSupabaseConfigured, resolveAuthEmail, supabase } from "./lib/supabase";
 import { categories, type CabinetFilters, type CabinetSummary, type CategorySummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
 import { makeWatchImage } from "./lib/watchImages";
 
@@ -121,22 +121,21 @@ function App() {
     toastTimer.current = window.setTimeout(() => setToast(""), 2200);
   }
 
-  async function signInWithEmail(email: string) {
+  async function signInWithPassword(login: string, password: string) {
     if (!supabase) return;
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin
-      }
-    });
-
-    if (error) {
-      setAuthMessage(error.message);
+    setAuthMessage("");
+    const email = resolveAuthEmail(login);
+    if (!email || !password) {
+      setAuthMessage("Enter the right username and password.");
       return;
     }
 
-    setAuthMessage("Check your email for the sign-in link.");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setAuthMessage("Username or password is incorrect.");
+    }
   }
 
   async function signOut() {
@@ -256,7 +255,7 @@ function App() {
   }
 
   if (isSupabaseConfigured && !session) {
-    return <AuthGate message={authMessage} onSignIn={signInWithEmail} />;
+    return <AuthGate configuredUsername={configuredAuthUsername} message={authMessage} onSignIn={signInWithPassword} />;
   }
 
   return (
@@ -312,14 +311,23 @@ function LoadingScreen() {
   );
 }
 
-function AuthGate({ message, onSignIn }: { message: string; onSignIn: (email: string) => Promise<void> }) {
-  const [email, setEmail] = useState("");
+function AuthGate({
+  configuredUsername,
+  message,
+  onSignIn
+}: {
+  configuredUsername: string;
+  message: string;
+  onSignIn: (login: string, password: string) => Promise<void>;
+}) {
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
-    await onSignIn(email);
+    await onSignIn(login, password);
     setIsSubmitting(false);
   }
 
@@ -331,22 +339,35 @@ function AuthGate({ message, onSignIn }: { message: string; onSignIn: (email: st
         </div>
         <div>
           <h1>Cabinet</h1>
-          <p>Sign in once to sync the watch list on your phone.</p>
+          <p>Sign in to sync the watch list on your phone.</p>
         </div>
         <label className="field">
-          <span>Email</span>
+          <span>Username</span>
           <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            autoComplete="email"
+            type="text"
+            value={login}
+            onChange={(event) => setLogin(event.target.value)}
+            placeholder={configuredUsername || "username"}
+            autoCapitalize="none"
+            autoComplete="username"
+            spellCheck={false}
+            required
+          />
+        </label>
+        <label className="field">
+          <span>Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Password"
+            autoComplete="current-password"
             required
           />
         </label>
         <button className="button button-primary" type="submit" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 className="spin" size={16} /> : <Cloud size={16} />}
-          <span>Send sign-in link</span>
+          <span>Sign in</span>
         </button>
         {message ? <p className="auth-message">{message}</p> : null}
       </form>
