@@ -5,6 +5,8 @@ import {
   BadgeCheck,
   Banknote,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Gem,
   Grid3X3,
@@ -42,6 +44,7 @@ const emptyFilters: CabinetFilters = { tab: "all", query: "", sort: "relevance" 
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
 
 type DrawerState = { open: false; editingId: null } | { open: true; editingId: string | null };
+type PreviewState = { watch: Watch; imageIndex: number };
 
 function App() {
   const shareToken = getShareTokenFromPath();
@@ -52,7 +55,7 @@ function CabinetApp() {
   const [watches, setWatches] = useState<Watch[]>([]);
   const [filters, setFilters] = useState<CabinetFilters>(emptyFilters);
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, editingId: null });
-  const [previewWatch, setPreviewWatch] = useState<Watch | null>(null);
+  const [previewWatch, setPreviewWatch] = useState<PreviewState | null>(null);
   const [toast, setToast] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -313,7 +316,7 @@ function CabinetApp() {
             watches={filteredWatches}
             filters={filters}
             onFilterChange={updateFilters}
-            onPreview={setPreviewWatch}
+            onPreview={(watch, imageIndex = 0) => setPreviewWatch({ watch, imageIndex })}
           />
         </div>
       </main>
@@ -327,7 +330,8 @@ function CabinetApp() {
       ) : null}
       {previewWatch ? (
         <ImagePreview
-          watch={previewWatch}
+          watch={previewWatch.watch}
+          initialImageIndex={previewWatch.imageIndex}
           onClose={() => setPreviewWatch(null)}
           onEdit={(id) => {
             setPreviewWatch(null);
@@ -350,7 +354,7 @@ function CabinetApp() {
 
 function SharedWishlistPage({ token }: { token: string }) {
   const [watches, setWatches] = useState<Watch[]>([]);
-  const [previewWatch, setPreviewWatch] = useState<Watch | null>(null);
+  const [previewWatch, setPreviewWatch] = useState<PreviewState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const wishlistTotal = useMemo(() => sum(watches.map((watch) => Number(watch.price) || 0)), [watches]);
@@ -421,7 +425,7 @@ function SharedWishlistPage({ token }: { token: string }) {
           ) : watches.length ? (
             <div className="watch-grid" aria-label="Wishlist watches">
               {watches.map((watch, index) => (
-                <WatchRow watch={watch} index={index} key={watch.id} onPreview={setPreviewWatch} />
+                <WatchRow watch={watch} index={index} key={watch.id} onPreview={(item, imageIndex = 0) => setPreviewWatch({ watch: item, imageIndex })} />
               ))}
             </div>
           ) : (
@@ -437,7 +441,8 @@ function SharedWishlistPage({ token }: { token: string }) {
       </main>
       {previewWatch ? (
         <ImagePreview
-          watch={previewWatch}
+          watch={previewWatch.watch}
+          initialImageIndex={previewWatch.imageIndex}
           onClose={() => setPreviewWatch(null)}
         />
       ) : null}
@@ -663,7 +668,7 @@ function Board({
   watches: Watch[];
   filters: CabinetFilters;
   onFilterChange: (filters: Partial<CabinetFilters>) => void;
-  onPreview: (watch: Watch) => void;
+  onPreview: (watch: Watch, imageIndex?: number) => void;
 }) {
   return (
     <section className="board" aria-label="Watch collection">
@@ -702,29 +707,76 @@ function WatchRow({
 }: {
   watch: Watch;
   index: number;
-  onPreview: (watch: Watch) => void;
+  onPreview: (watch: Watch, imageIndex?: number) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
-  const primaryImage = getWatchImages(watch)[0];
+  const images = useMemo(() => getWatchImages(watch), [watch]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const activeImage = images[activeImageIndex] || images[0] || makeWatchImage(watch.category, watch.id);
+  const hasMultipleImages = images.length > 1;
+
+  useEffect(() => {
+    setActiveImageIndex((current) => clampImageIndex(current, images.length));
+  }, [images.length, watch.id]);
+
+  function showImage(step: number) {
+    setActiveImageIndex((current) => getWrappedImageIndex(current, images.length, step));
+  }
 
   return (
     <article className={`watch-row is-${watch.status}`}>
       <div className="shelf-visual">
-        <button
-          className="row-thumb"
-          type="button"
-          onClick={() => onPreview(watch)}
-          aria-label={`View larger image of ${watch.brand} ${watch.model}`}
-        >
-          <img
-            className="watch-image"
-            src={primaryImage}
-            alt={`${watch.brand} ${watch.model}`}
-            onError={(event) => {
-              event.currentTarget.src = makeWatchImage(watch.category, index);
+        <div className="row-thumb">
+          <button
+            className="row-thumb-open"
+            type="button"
+            onClick={() => onPreview(watch, activeImageIndex)}
+            onTouchStart={(event) => {
+              if (hasMultipleImages) touchStartX.current = event.changedTouches[0]?.clientX ?? null;
             }}
-          />
-        </button>
+            onTouchEnd={(event) => {
+              if (!hasMultipleImages || touchStartX.current === null) return;
+              const delta = touchStartX.current - (event.changedTouches[0]?.clientX ?? touchStartX.current);
+              touchStartX.current = null;
+              if (Math.abs(delta) < 36) return;
+              event.preventDefault();
+              showImage(delta > 0 ? 1 : -1);
+            }}
+            aria-label={`View larger image of ${watch.brand} ${watch.model}`}
+          >
+            <img
+              className="watch-image"
+              src={activeImage}
+              alt={`${watch.brand} ${watch.model}`}
+              onError={(event) => {
+                event.currentTarget.src = makeWatchImage(watch.category, index);
+              }}
+            />
+          </button>
+          {hasMultipleImages ? (
+            <>
+              <button className="row-image-nav is-prev" type="button" onClick={() => showImage(-1)} aria-label="Previous image">
+                <ChevronLeft size={15} />
+              </button>
+              <button className="row-image-nav is-next" type="button" onClick={() => showImage(1)} aria-label="Next image">
+                <ChevronRight size={15} />
+              </button>
+              <div className="row-image-dots" aria-label={`${activeImageIndex + 1} of ${images.length} images`}>
+                {images.map((image, imageIndex) => (
+                  <button
+                    className={`row-image-dot ${activeImageIndex === imageIndex ? "is-active" : ""}`}
+                    type="button"
+                    onClick={() => setActiveImageIndex(imageIndex)}
+                    aria-label={`Show image ${imageIndex + 1}`}
+                    aria-pressed={activeImageIndex === imageIndex}
+                    key={`${image}-${imageIndex}`}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
       </div>
       <div className="watch-copy">
         <div className="watch-topline">
@@ -778,32 +830,42 @@ function EmptyState() {
 
 function ImagePreview({
   watch,
+  initialImageIndex = 0,
   onClose,
   onEdit,
   onDelete
 }: {
   watch: Watch;
+  initialImageIndex?: number;
   onClose: () => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => Promise<void>;
 }) {
   const images = getWatchImages(watch);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
   const imageUrl = images[selectedImageIndex] || images[0] || makeWatchImage(watch.category, watch.id);
   const sourceDomain = getDomain(watch.sourceUrl);
+  const hasMultipleImages = images.length > 1;
 
   useEffect(() => {
-    setSelectedImageIndex(0);
-  }, [watch.id]);
+    setSelectedImageIndex(clampImageIndex(initialImageIndex, images.length));
+  }, [images.length, initialImageIndex, watch.id]);
+
+  function showPreviewImage(step: number) {
+    setSelectedImageIndex((current) => getWrappedImageIndex(current, images.length, step));
+  }
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
+      if (event.key === "ArrowLeft" && hasMultipleImages) showPreviewImage(-1);
+      if (event.key === "ArrowRight" && hasMultipleImages) showPreviewImage(1);
     }
 
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  }, [hasMultipleImages, images.length, onClose]);
 
   return (
     <div
@@ -848,7 +910,20 @@ function ImagePreview({
           </div>
         </div>
         <div className="image-preview-stage">
-          <div className="image-preview-frame">
+          <div
+            className="image-preview-frame"
+            onTouchStart={(event) => {
+              if (hasMultipleImages) touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(event) => {
+              if (!hasMultipleImages || touchStartX.current === null) return;
+              const delta = touchStartX.current - (event.changedTouches[0]?.clientX ?? touchStartX.current);
+              touchStartX.current = null;
+              if (Math.abs(delta) < 36) return;
+              event.preventDefault();
+              showPreviewImage(delta > 0 ? 1 : -1);
+            }}
+          >
             <img
               src={imageUrl}
               alt={`${watch.brand} ${watch.model}`}
@@ -856,8 +931,21 @@ function ImagePreview({
                 event.currentTarget.src = makeWatchImage(watch.category, watch.id);
               }}
             />
+            {hasMultipleImages ? (
+              <>
+                <button className="preview-nav is-prev" type="button" onClick={() => showPreviewImage(-1)} aria-label="Previous image">
+                  <ChevronLeft size={22} />
+                </button>
+                <button className="preview-nav is-next" type="button" onClick={() => showPreviewImage(1)} aria-label="Next image">
+                  <ChevronRight size={22} />
+                </button>
+                <div className="image-preview-counter">
+                  {selectedImageIndex + 1}/{images.length}
+                </div>
+              </>
+            ) : null}
           </div>
-          {images.length > 1 ? (
+          {hasMultipleImages ? (
             <div className="image-preview-thumbs" aria-label="Watch images">
               {images.map((image, index) => (
                 <button
@@ -1095,6 +1183,16 @@ function getFormImageFiles(form: FormData) {
     .getAll("imageFiles")
     .filter((value): value is File => value instanceof File && value.size > 0)
     .slice(0, maxWatchImages);
+}
+
+function clampImageIndex(value: number, total: number) {
+  if (total <= 0) return 0;
+  return Math.min(Math.max(Number(value) || 0, 0), total - 1);
+}
+
+function getWrappedImageIndex(current: number, total: number, step: number) {
+  if (total <= 1) return 0;
+  return (clampImageIndex(current, total) + step + total) % total;
 }
 
 function getSummary(watches: Watch[]): CabinetSummary {

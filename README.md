@@ -45,7 +45,7 @@ A private, mobile-first watch collecting app for tracking owned watches, wishlis
 - Filter by All, Wishlist, and Owned.
 - Sort by relevance, price high to low, or price low to high.
 - See owned value and wishlist total in AED.
-- Open a large image gallery with edit, delete, and external shop link actions.
+- Swipe through image sets on the grid, then open a large gallery with edit, delete, and external shop link actions.
 - Share a public wishlist link that does not require visitors to log in.
 - Use local browser storage without Supabase, or sync privately with Google login and Supabase.
 
