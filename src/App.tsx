@@ -802,11 +802,13 @@ function ImagePreview({
         <div className="image-preview-header">
           <div>
             <p>{watch.brand}</p>
-            <h2>{watch.model}</h2>
-            <a className="preview-source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
-              <LinkIcon size={13} />
-              <span>{sourceDomain}</span>
-            </a>
+            <div className="image-preview-title-row">
+              <h2>{watch.model}</h2>
+              <a className="preview-source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
+                <LinkIcon size={13} />
+                <span>{sourceDomain}</span>
+              </a>
+            </div>
           </div>
           <div className="image-preview-actions">
             {onEdit ? (
