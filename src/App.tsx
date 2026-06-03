@@ -212,9 +212,9 @@ function App() {
 
   async function deleteWatch(id: string) {
     const watch = watches.find((item) => item.id === id);
-    if (!watch) return;
+    if (!watch) return false;
     const confirmed = window.confirm(`Delete ${watch.brand} ${watch.model}?`);
-    if (!confirmed) return;
+    if (!confirmed) return false;
 
     const previous = watches;
     setWatches((current) => current.filter((item) => item.id !== id));
@@ -222,9 +222,11 @@ function App() {
     try {
       if (cloudUser) await deleteCloudWatch(id);
       showToast("Watch deleted.");
+      return true;
     } catch (error) {
       setWatches(previous);
       showToast(error instanceof Error ? error.message : "Watch was not deleted.");
+      return false;
     }
   }
 
@@ -251,8 +253,6 @@ function App() {
             watches={filteredWatches}
             filters={filters}
             onFilterChange={updateFilters}
-            onEdit={openDrawer}
-            onDelete={deleteWatch}
             onPreview={setPreviewWatch}
           />
         </div>
@@ -265,7 +265,20 @@ function App() {
           onSubmit={handleWatchFormSubmit}
         />
       ) : null}
-      {previewWatch ? <ImagePreview watch={previewWatch} onClose={() => setPreviewWatch(null)} /> : null}
+      {previewWatch ? (
+        <ImagePreview
+          watch={previewWatch}
+          onClose={() => setPreviewWatch(null)}
+          onEdit={(id) => {
+            setPreviewWatch(null);
+            openDrawer(id);
+          }}
+          onDelete={async (id) => {
+            const deleted = await deleteWatch(id);
+            if (deleted) setPreviewWatch(null);
+          }}
+        />
+      ) : null}
       {toast ? (
         <div className="toast" role="status">
           {toast}
@@ -464,15 +477,11 @@ function Board({
   watches,
   filters,
   onFilterChange,
-  onEdit,
-  onDelete,
   onPreview
 }: {
   watches: Watch[];
   filters: CabinetFilters;
   onFilterChange: (filters: Partial<CabinetFilters>) => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
   onPreview: (watch: Watch) => void;
 }) {
   return (
@@ -494,8 +503,6 @@ function Board({
               watch={watch}
               index={index}
               key={watch.id}
-              onEdit={onEdit}
-              onDelete={onDelete}
               onPreview={onPreview}
             />
           ))}
@@ -510,14 +517,10 @@ function Board({
 function WatchRow({
   watch,
   index,
-  onEdit,
-  onDelete,
   onPreview
 }: {
   watch: Watch;
   index: number;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
   onPreview: (watch: Watch) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
@@ -579,22 +582,6 @@ function WatchRow({
             <span>{sourceDomain}</span>
           </a>
         </div>
-        <div className="watch-actions">
-          <div className="action-group">
-            <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
-              <Pencil size={16} />
-            </button>
-            <button
-              className="button button-icon button-danger"
-              type="button"
-              onClick={() => onDelete(watch.id)}
-              title="Delete watch"
-              aria-label="Delete watch"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        </div>
       </div>
     </article>
   );
@@ -612,7 +599,17 @@ function EmptyState() {
   );
 }
 
-function ImagePreview({ watch, onClose }: { watch: Watch; onClose: () => void }) {
+function ImagePreview({
+  watch,
+  onClose,
+  onEdit,
+  onDelete
+}: {
+  watch: Watch;
+  onClose: () => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
+}) {
   const imageUrl = watch.imageUrl || makeWatchImage(watch.category, watch.id);
 
   useEffect(() => {
@@ -640,9 +637,23 @@ function ImagePreview({ watch, onClose }: { watch: Watch; onClose: () => void })
             <p>{watch.brand}</p>
             <h2>{watch.model}</h2>
           </div>
-          <button className="button button-icon" type="button" onClick={onClose} aria-label="Close image preview">
-            <X size={18} />
-          </button>
+          <div className="image-preview-actions">
+            <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
+              <Pencil size={16} />
+            </button>
+            <button
+              className="button button-icon button-danger"
+              type="button"
+              onClick={() => onDelete(watch.id)}
+              title="Delete watch"
+              aria-label="Delete watch"
+            >
+              <Trash2 size={16} />
+            </button>
+            <button className="button button-icon" type="button" onClick={onClose} aria-label="Close image preview">
+              <X size={18} />
+            </button>
+          </div>
         </div>
         <div className="image-preview-frame">
           <img src={imageUrl} alt={`${watch.brand} ${watch.model}`} />
@@ -725,28 +736,16 @@ function WatchDrawer({
                 ))}
               </select>
             </div>
-            <fieldset className="field status-field">
-              <legend>
+            <div className="field">
+              <label htmlFor="status">
                 <Heart size={15} />
                 Status
-              </legend>
-              <div className="status-toggle">
-                <label>
-                  <input type="radio" name="status" value="wishlist" defaultChecked={watch.status === "wishlist"} />
-                  <span>
-                    <Heart size={14} />
-                    Wishlist
-                  </span>
-                </label>
-                <label>
-                  <input type="radio" name="status" value="owned" defaultChecked={watch.status === "owned"} />
-                  <span>
-                    <Check size={14} />
-                    Owned
-                  </span>
-                </label>
-              </div>
-            </fieldset>
+              </label>
+              <select id="status" name="status" defaultValue={watch.status}>
+                <option value="wishlist">Wishlist</option>
+                <option value="owned">Owned</option>
+              </select>
+            </div>
             <div className="field">
               <label htmlFor="movement">
                 <RotateCw size={15} />
