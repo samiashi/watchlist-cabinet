@@ -5,7 +5,6 @@ import {
   Banknote,
   Check,
   Clock,
-  FileText,
   Gem,
   Grid3X3,
   Heart,
@@ -18,7 +17,6 @@ import {
   Plus,
   Save,
   Search,
-  ShelvingUnit,
   ShoppingBag,
   Sun,
   Timer,
@@ -34,7 +32,7 @@ import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { categories, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
 import { makeWatchImage } from "./lib/watchImages";
 
-const emptyFilters: CabinetFilters = { tab: "all", category: "all", query: "" };
+const emptyFilters: CabinetFilters = { tab: "all", query: "" };
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
 
 type DrawerState = { open: false; editingId: null } | { open: true; editingId: string | null };
@@ -189,7 +187,6 @@ function App() {
       price: Number(form.get("price")) || 0,
       sourceUrl: normalizeUrl(form.get("sourceUrl")),
       imageUrl: imageUrl || existing?.imageUrl || makeWatchImage(category, watches.length + 1),
-      notes: cleanText(form.get("notes")),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -245,11 +242,11 @@ function App() {
           onQueryChange={(query) => updateFilters({ query })}
         />
         <MobileSummary summary={summary} />
-        <Controls filters={filters} onChange={updateFilters} />
         <div className="content-grid">
           <Board
             watches={filteredWatches}
-            tab={filters.tab}
+            filters={filters}
+            onFilterChange={updateFilters}
             onEdit={openDrawer}
             onDelete={deleteWatch}
             onPreview={setPreviewWatch}
@@ -427,7 +424,7 @@ function MobileSummary({ summary }: { summary: CabinetSummary }) {
   );
 }
 
-function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (filters: Partial<CabinetFilters>) => void }) {
+function StatusTabs({ tab, onChange }: { tab: CabinetFilters["tab"]; onChange: (tab: CabinetFilters["tab"]) => void }) {
   const tabOptions = [
     { id: "all", label: "All", icon: Grid3X3 },
     { id: "wishlist", label: "Wishlist", icon: Heart },
@@ -435,47 +432,47 @@ function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (f
   ] as const;
 
   return (
-    <section className="controls-band" aria-label="Collection filters">
-      <div className="tabs" role="tablist" aria-label="Status">
-        {tabOptions.map((tab) => (
-          <button
-            className={`tab ${filters.tab === tab.id ? "is-active" : ""}`}
-            type="button"
-            key={tab.id}
-            onClick={() => onChange({ tab: tab.id, category: "all" })}
-          >
-            <tab.icon size={15} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-    </section>
+    <div className="tabs" role="tablist" aria-label="Status">
+      {tabOptions.map((option) => (
+        <button
+          className={`tab ${tab === option.id ? "is-active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={tab === option.id}
+          key={option.id}
+          onClick={() => onChange(option.id)}
+        >
+          <option.icon size={15} />
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
 function Board({
   watches,
-  tab,
+  filters,
+  onFilterChange,
   onEdit,
   onDelete,
   onPreview
 }: {
   watches: Watch[];
-  tab: CabinetFilters["tab"];
+  filters: CabinetFilters;
+  onFilterChange: (filters: Partial<CabinetFilters>) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onPreview: (watch: Watch) => void;
 }) {
-  const title = tab === "wishlist" ? "Wishlist" : tab === "owned" ? "Owned" : "Collection";
-
   return (
     <section className="board" aria-label="Watch collection">
       <div className="board-header">
         <div>
-          <h2 className="section-title">{title}</h2>
+          <h2 className="section-title">Collection</h2>
           <p className="section-meta">{formatWatchCount(watches.length)} saved</p>
         </div>
-        <ShelvingUnit size={22} />
+        <StatusTabs tab={filters.tab} onChange={(tab) => onFilterChange({ tab })} />
       </div>
       {watches.length ? (
         <div className="watch-grid" aria-label="Watches">
@@ -557,7 +554,6 @@ function WatchRow({
             <span>{sourceDomain}</span>
           </a>
         </div>
-        <p className="watch-notes">{watch.notes || "No notes yet."}</p>
         <div className="watch-actions">
           <div className="action-group">
             <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
@@ -649,8 +645,7 @@ function WatchDrawer({
     status: filters.tab === "owned" ? "owned" : "wishlist",
     price: "",
     sourceUrl: "",
-    imageUrl: "",
-    notes: ""
+    imageUrl: ""
   };
 
   return (
@@ -697,8 +692,8 @@ function WatchDrawer({
               </label>
               <select id="category" name="category" defaultValue={watch.category}>
                 {categories.map((category) => (
-                  <option value={category.name} key={category.name}>
-                    {category.name}
+                  <option value={category} key={category}>
+                    {category}
                   </option>
                 ))}
               </select>
@@ -744,13 +739,6 @@ function WatchDrawer({
                 defaultValue={watch.imageUrl && !watch.imageUrl.startsWith("data:") ? watch.imageUrl : ""}
                 placeholder="https://image.example.com/watch.jpg"
               />
-            </div>
-            <div className="field is-wide">
-              <label htmlFor="notes">
-                <FileText size={15} />
-                Notes
-              </label>
-              <textarea id="notes" name="notes" defaultValue={watch.notes || ""} placeholder="Why this watch belongs in the cabinet" />
             </div>
           </div>
         </div>
@@ -806,7 +794,7 @@ function getFilteredWatches(watches: Watch[], filters: CabinetFilters) {
     .filter((watch) => filters.tab === "all" || watch.status === filters.tab)
     .filter((watch) => {
       if (!query) return true;
-      const haystack = [watch.brand, watch.model, watch.category, watch.status, watch.notes, getDomain(watch.sourceUrl)].join(" ").toLowerCase();
+      const haystack = [watch.brand, watch.model, watch.category, watch.status, getDomain(watch.sourceUrl)].join(" ").toLowerCase();
       return haystack.includes(query);
     })
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());

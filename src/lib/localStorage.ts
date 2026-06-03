@@ -7,7 +7,7 @@ const LEGACY_STORAGE_KEYS = ["watchlist-cabinet-state-v3", "watchlist-cabinet-st
 
 const fallbackSnapshot: CabinetSnapshot = {
   watches: sampleWatches,
-  filters: { tab: "all", category: "all", query: "" }
+  filters: { tab: "all", query: "" }
 };
 
 export function loadLocalSnapshot(): CabinetSnapshot {
@@ -23,7 +23,6 @@ export function loadLocalSnapshot(): CabinetSnapshot {
       watches: saved.watches.map(normalizeStoredWatch),
       filters: {
         tab: saved.filters?.tab || "all",
-        category: saved.filters?.category || "all",
         query: saved.filters?.query || ""
       }
     };
@@ -39,8 +38,15 @@ export function saveLocalSnapshot(snapshot: CabinetSnapshot) {
 
 function normalizeStoredWatch(watch: Watch, index: number): Watch {
   return {
-    ...watch,
+    id: watch.id,
+    brand: watch.brand,
+    model: watch.model,
+    category: watch.category,
+    status: watch.status,
     price: Number(watch.price) || 0,
-    imageUrl: watch.imageUrl || makeWatchImage(watch.category, index)
+    sourceUrl: watch.sourceUrl,
+    imageUrl: watch.imageUrl || makeWatchImage(watch.category, index),
+    createdAt: watch.createdAt,
+    updatedAt: watch.updatedAt
   };
 }

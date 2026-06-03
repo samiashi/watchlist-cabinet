@@ -10,7 +10,6 @@ const watches: Omit<Watch, "imageUrl">[] = [
     status: "wishlist",
     price: 8950,
     sourceUrl: "https://example-watch-shop.com/nomos-tangente-38",
-    notes: "Clean hand-wound dress option for formal wear.",
     createdAt: "2026-05-03T09:00:00.000Z"
   },
   {
@@ -21,7 +20,6 @@ const watches: Omit<Watch, "imageUrl">[] = [
     status: "owned",
     price: 3600,
     sourceUrl: "https://example-watch-shop.com/seiko-spb143-diver",
-    notes: "Daily-ready diver with a steel bracelet.",
     createdAt: "2026-04-16T09:00:00.000Z"
   },
   {
@@ -32,7 +30,6 @@ const watches: Omit<Watch, "imageUrl">[] = [
     status: "owned",
     price: 2200,
     sourceUrl: "https://example-watch-shop.com/hamilton-khaki-field-mechanical",
-    notes: "Simple field watch that covers casual weekends.",
     createdAt: "2026-03-02T09:00:00.000Z"
   },
   {
@@ -43,7 +40,6 @@ const watches: Omit<Watch, "imageUrl">[] = [
     status: "wishlist",
     price: 7350,
     sourceUrl: "https://example-watch-shop.com/tissot-prx-chronograph",
-    notes: "Integrated-bracelet chrono candidate.",
     createdAt: "2026-05-22T09:00:00.000Z"
   },
   {
@@ -54,7 +50,6 @@ const watches: Omit<Watch, "imageUrl">[] = [
     status: "wishlist",
     price: 4400,
     sourceUrl: "https://example-watch-shop.com/baltic-aquascaphe-gmt",
-    notes: "Travel watch option with color and restraint.",
     createdAt: "2026-05-24T09:00:00.000Z"
   },
   {
@@ -65,7 +60,6 @@ const watches: Omit<Watch, "imageUrl">[] = [
     status: "owned",
     price: 3650,
     sourceUrl: "https://example-watch-shop.com/christopher-ward-c63-sealander",
-    notes: "Comfortable everyday three-hander.",
     createdAt: "2026-02-12T09:00:00.000Z"
   }
 ];

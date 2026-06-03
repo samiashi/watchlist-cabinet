@@ -13,7 +13,6 @@ interface WatchRow {
   price: number | string;
   source_url: string;
   image_url: string | null;
-  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,7 +30,7 @@ export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
 
   return {
     watches: ((watchesResult.data || []) as WatchRow[]).map(fromWatchRow),
-    filters: { tab: "all", category: "all", query: "" }
+    filters: { tab: "all", query: "" }
   };
 }
 
@@ -62,7 +61,6 @@ function fromWatchRow(row: WatchRow, index: number): Watch {
     price: Number(row.price) || 0,
     sourceUrl: row.source_url,
     imageUrl: row.image_url || makeWatchImage(row.category, index),
-    notes: row.notes || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -79,7 +77,6 @@ function toWatchRow(user: User, watch: Watch): WatchRow {
     price: watch.price,
     source_url: watch.sourceUrl,
     image_url: watch.imageUrl && !watch.imageUrl.startsWith("data:") ? watch.imageUrl : null,
-    notes: watch.notes || null,
     created_at: watch.createdAt,
     updated_at: new Date().toISOString()
   };
