@@ -30,7 +30,7 @@ export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
 
   return {
     watches: ((watchesResult.data || []) as WatchRow[]).map(fromWatchRow),
-    filters: { tab: "all", query: "" }
+    filters: { tab: "all", query: "", sort: "relevance" }
   };
 }
 

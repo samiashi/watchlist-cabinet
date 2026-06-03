@@ -3,6 +3,7 @@ export const categories = ["Dress", "Diver", "Field", "Chronograph", "GMT", "Dai
 export type WatchCategory = (typeof categories)[number];
 export type WatchStatus = "owned" | "wishlist";
 export type WatchTab = "all" | WatchStatus;
+export type WatchSort = "relevance" | "price-desc" | "price-asc";
 
 export interface Watch {
   id: string;
@@ -20,6 +21,7 @@ export interface Watch {
 export interface CabinetFilters {
   tab: WatchTab;
   query: string;
+  sort: WatchSort;
 }
 
 export interface CabinetSnapshot {

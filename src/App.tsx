@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
+  ArrowDownUp,
   BadgeCheck,
   Banknote,
   Check,
@@ -32,7 +33,7 @@ import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { categories, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
 import { makeWatchImage } from "./lib/watchImages";
 
-const emptyFilters: CabinetFilters = { tab: "all", query: "" };
+const emptyFilters: CabinetFilters = { tab: "all", query: "", sort: "relevance" };
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
 
 type DrawerState = { open: false; editingId: null } | { open: true; editingId: string | null };
@@ -234,10 +235,9 @@ function App() {
   return (
     <div className="app-shell">
       <main className="workspace">
-        <MobileHeader watchCount={watches.length} onAdd={() => openDrawer()} />
+        <MobileHeader onAdd={() => openDrawer()} />
         <Topbar
           filters={filters}
-          watchCount={watches.length}
           onAdd={() => openDrawer()}
           onQueryChange={(query) => updateFilters({ query })}
         />
@@ -338,7 +338,7 @@ function GoogleMark() {
   );
 }
 
-function MobileHeader({ watchCount, onAdd }: { watchCount: number; onAdd: () => void }) {
+function MobileHeader({ onAdd }: { onAdd: () => void }) {
   return (
     <header className="mobile-appbar" aria-label="Mobile app header">
       <div className="mobile-brand">
@@ -359,12 +359,10 @@ function MobileHeader({ watchCount, onAdd }: { watchCount: number; onAdd: () => 
 
 function Topbar({
   filters,
-  watchCount,
   onAdd,
   onQueryChange
 }: {
   filters: CabinetFilters;
-  watchCount: number;
   onAdd: () => void;
   onQueryChange: (query: string) => void;
 }) {
@@ -444,6 +442,20 @@ function StatusTabs({ tab, onChange }: { tab: CabinetFilters["tab"]; onChange: (
   );
 }
 
+function SortSelect({ sort, onChange }: { sort: CabinetFilters["sort"]; onChange: (sort: CabinetFilters["sort"]) => void }) {
+  return (
+    <label className="sort-control">
+      <ArrowDownUp size={14} aria-hidden="true" />
+      <span className="sr-only">Sort watches</span>
+      <select value={sort} onChange={(event) => onChange(event.target.value as CabinetFilters["sort"])} aria-label="Sort watches">
+        <option value="relevance">Relevance</option>
+        <option value="price-desc">Price high to low</option>
+        <option value="price-asc">Price low to high</option>
+      </select>
+    </label>
+  );
+}
+
 function Board({
   watches,
   filters,
@@ -466,7 +478,10 @@ function Board({
           <h2 className="section-title">Collection</h2>
           <p className="section-meta">{formatWatchCount(watches.length)} saved</p>
         </div>
-        <StatusTabs tab={filters.tab} onChange={(tab) => onFilterChange({ tab })} />
+        <div className="collection-controls">
+          <StatusTabs tab={filters.tab} onChange={(tab) => onFilterChange({ tab })} />
+          <SortSelect sort={filters.sort} onChange={(sort) => onFilterChange({ sort })} />
+        </div>
       </div>
       {watches.length ? (
         <div className="watch-grid" aria-label="Watches">
@@ -791,7 +806,35 @@ function getFilteredWatches(watches: Watch[], filters: CabinetFilters) {
       const haystack = [watch.brand, watch.model, watch.category, watch.status, getDomain(watch.sourceUrl)].join(" ").toLowerCase();
       return haystack.includes(query);
     })
-    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    .sort((a, b) => compareWatches(a, b, filters.sort, query));
+}
+
+function compareWatches(a: Watch, b: Watch, sort: CabinetFilters["sort"], query: string) {
+  if (sort === "price-desc") {
+    return (Number(b.price) || 0) - (Number(a.price) || 0) || compareByRecency(a, b);
+  }
+
+  if (sort === "price-asc") {
+    return (Number(a.price) || 0) - (Number(b.price) || 0) || compareByRecency(a, b);
+  }
+
+  return getWatchRelevance(b, query) - getWatchRelevance(a, query) || compareByRecency(a, b);
+}
+
+function compareByRecency(a: Watch, b: Watch) {
+  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+}
+
+function getWatchRelevance(watch: Watch, query: string) {
+  if (!query) return 0;
+
+  const fields = [watch.brand, watch.model, watch.category, watch.status, getDomain(watch.sourceUrl)].map((value) => value.toLowerCase());
+  return fields.reduce((score, value) => {
+    if (value === query) return score + 8;
+    if (value.startsWith(query)) return score + 4;
+    if (value.includes(query)) return score + 1;
+    return score;
+  }, 0);
 }
 
 export default App;
