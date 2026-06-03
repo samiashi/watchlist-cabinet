@@ -9,13 +9,6 @@ const categories = [
   { name: "Daily", target: 2 }
 ];
 
-const navItems = [
-  { id: "collection", label: "Collection", icon: "watch" },
-  { id: "wishlist", label: "Wishlist", icon: "heart" },
-  { id: "categories", label: "Categories", icon: "tag" },
-  { id: "calculator", label: "Calculator", icon: "calculator" }
-];
-
 const categoryThemes = {
   Dress: { bg: "#1b1714", case: "#d5b26a", dial: "#f0dfbf", strap: "#17191d", detail: "#5d4930" },
   Diver: { bg: "#101d24", case: "#7794a1", dial: "#102a34", strap: "#121d24", detail: "#d4e8ef" },
@@ -36,7 +29,6 @@ const sampleWatches = [
     sourceUrl: "https://example-watch-shop.com/nomos-tangente-38",
     imageUrl: "",
     notes: "Clean hand-wound dress option for formal wear.",
-    favorite: true,
     createdAt: "2026-05-03T09:00:00.000Z"
   },
   {
@@ -49,7 +41,6 @@ const sampleWatches = [
     sourceUrl: "https://example-watch-shop.com/seiko-spb143-diver",
     imageUrl: "",
     notes: "Daily-ready diver with a steel bracelet.",
-    favorite: false,
     createdAt: "2026-04-16T09:00:00.000Z"
   },
   {
@@ -62,7 +53,6 @@ const sampleWatches = [
     sourceUrl: "https://example-watch-shop.com/hamilton-khaki-field-mechanical",
     imageUrl: "",
     notes: "Simple field watch that covers casual weekends.",
-    favorite: false,
     createdAt: "2026-03-02T09:00:00.000Z"
   },
   {
@@ -75,7 +65,6 @@ const sampleWatches = [
     sourceUrl: "https://example-watch-shop.com/tissot-prx-chronograph",
     imageUrl: "",
     notes: "Integrated-bracelet chrono candidate.",
-    favorite: false,
     createdAt: "2026-05-22T09:00:00.000Z"
   },
   {
@@ -88,7 +77,6 @@ const sampleWatches = [
     sourceUrl: "https://example-watch-shop.com/baltic-aquascaphe-gmt",
     imageUrl: "",
     notes: "Travel watch option with color and restraint.",
-    favorite: true,
     createdAt: "2026-05-24T09:00:00.000Z"
   },
   {
@@ -101,7 +89,6 @@ const sampleWatches = [
     sourceUrl: "https://example-watch-shop.com/christopher-ward-c63-sealander",
     imageUrl: "",
     notes: "Comfortable everyday three-hander.",
-    favorite: false,
     createdAt: "2026-02-12T09:00:00.000Z"
   }
 ];
@@ -127,8 +114,7 @@ function loadState() {
         filters: {
           tab: saved.filters?.tab || "all",
           category: saved.filters?.category || "all",
-          query: saved.filters?.query || "",
-          sort: saved.filters?.sort || "newest"
+          query: saved.filters?.query || ""
         },
         drawer: { open: false, editingId: null },
         budget: Number(saved.budget) || 6000,
@@ -141,7 +127,7 @@ function loadState() {
 
   return {
     watches: fallbackWatches,
-    filters: { tab: "all", category: "all", query: "", sort: "newest" },
+    filters: { tab: "all", category: "all", query: "" },
     drawer: { open: false, editingId: null },
     budget: 6000,
     toast: ""
@@ -163,19 +149,16 @@ function render() {
 
   app.innerHTML = `
     <div class="app-shell">
-      ${renderSidebar(summary)}
       <main class="workspace">
         ${renderMobileHeader()}
         ${renderTopbar()}
         ${renderMobileSummary(summary)}
-        ${renderMetrics(summary)}
-        ${renderControls(filtered.length)}
+        ${renderControls()}
         <div class="content-grid">
           ${renderBoard(filtered)}
           ${renderCalculator(summary)}
         </div>
       </main>
-      ${renderMobileBottomNav()}
       ${state.drawer.open ? renderDrawer() : ""}
       ${state.toast ? `<div class="toast" role="status">${escapeHtml(state.toast)}</div>` : ""}
     </div>
@@ -200,61 +183,6 @@ function renderMobileHeader() {
       </button>
     </header>
   `;
-}
-
-function renderSidebar(summary) {
-  const maxCount = Math.max(1, ...summary.categoryStats.map((item) => item.owned + item.wishlist));
-
-  return `
-    <aside class="sidebar" aria-label="Watchlist Cabinet navigation">
-      <div class="brand-block">
-        <div class="brand-mark" aria-hidden="true">${icon("watch", 22)}</div>
-        <div>
-          <h1 class="brand-title">Watchlist Cabinet</h1>
-          <p class="brand-subtitle">Collection desk</p>
-        </div>
-      </div>
-      <nav class="nav-list" aria-label="Primary">
-        ${navItems.map((item) => `
-          <button class="nav-button ${isNavActive(item.id) ? "is-active" : ""}" type="button" data-action="nav" data-nav="${item.id}">
-            ${icon(item.icon, 18)}
-            <span>${item.label}</span>
-          </button>
-        `).join("")}
-      </nav>
-      <section class="sidebar-section" aria-label="Category coverage">
-        <p class="sidebar-label">Category coverage</p>
-        <div class="category-mini-list">
-          ${summary.categoryStats.map((item) => `
-            <button class="category-mini button-subtle" type="button" data-action="category" data-category="${item.name}">
-              <span>${item.name}</span>
-              <strong>${item.owned}/${item.target}</strong>
-              <span class="mini-meter" aria-hidden="true">
-                <span style="width: ${Math.min(100, ((item.owned + item.wishlist) / maxCount) * 100)}%"></span>
-              </span>
-            </button>
-          `).join("")}
-        </div>
-      </section>
-      <div class="sidebar-actions">
-        <button class="button button-subtle" type="button" data-action="export-csv" title="Export watches to CSV">
-          ${icon("download", 17)}
-          <span>Export CSV</span>
-        </button>
-        <button class="button button-subtle" type="button" data-action="reset-samples" title="Reset sample collection">
-          ${icon("refresh", 17)}
-          <span>Reset samples</span>
-        </button>
-      </div>
-    </aside>
-  `;
-}
-
-function isNavActive(navId) {
-  if (navId === "wishlist") return state.filters.tab === "wishlist";
-  if (navId === "categories") return state.filters.tab !== "wishlist" && state.filters.category !== "all";
-  if (navId === "calculator") return false;
-  return state.filters.tab !== "wishlist" && state.filters.category === "all";
 }
 
 function renderTopbar() {
@@ -306,62 +234,7 @@ function renderMobileSummary(summary) {
   `;
 }
 
-function renderMetrics(summary) {
-  return `
-    <section class="metric-row" aria-label="Collection summary">
-      <article class="metric">
-        <div class="metric-label">${icon("watch", 16)} Owned watches</div>
-        <div>
-          <div class="metric-value">${summary.ownedCount}</div>
-          <div class="metric-caption">${formatCurrency(summary.ownedValue)} current value</div>
-        </div>
-      </article>
-      <article class="metric">
-        <div class="metric-label">${icon("heart", 16)} Wishlist watches</div>
-        <div>
-          <div class="metric-value">${summary.wishlistCount}</div>
-          <div class="metric-caption">${formatCurrency(summary.wishlistTotal)} to buy all</div>
-        </div>
-      </article>
-      <article class="metric">
-        <div class="metric-label">${icon("tag", 16)} Categories covered</div>
-        <div>
-          <div class="metric-value">${summary.coveredCategories}/${categories.length}</div>
-          <div class="metric-caption">${summary.openCategories} category gaps</div>
-        </div>
-      </article>
-      <article class="metric">
-        <div class="metric-label">${icon("calculator", 16)} Next budget</div>
-        <div>
-          <div class="metric-value">${formatCurrency(state.budget)}</div>
-          <div class="metric-caption">${summary.budgetDelta >= 0 ? `${formatCurrency(summary.budgetDelta)} left after wishlist` : `${formatCurrency(Math.abs(summary.budgetDelta))} short`}</div>
-        </div>
-      </article>
-    </section>
-  `;
-}
-
-function renderMobileBottomNav() {
-  const mobileItems = [
-    { id: "collection", label: "Collection", icon: "watch" },
-    { id: "wishlist", label: "Wishlist", icon: "heart" },
-    { id: "categories", label: "Categories", icon: "tag" },
-    { id: "calculator", label: "Costs", icon: "calculator" }
-  ];
-
-  return `
-    <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
-      ${mobileItems.map((item) => `
-        <button class="mobile-nav-button ${isNavActive(item.id) ? "is-active" : ""}" type="button" data-action="nav" data-nav="${item.id}">
-          ${icon(item.icon, 18)}
-          <span>${item.label}</span>
-        </button>
-      `).join("")}
-    </nav>
-  `;
-}
-
-function renderControls(filteredCount) {
+function renderControls() {
   const tabOptions = [
     { id: "all", label: "All" },
     { id: "owned", label: "Owned" },
@@ -385,16 +258,6 @@ function renderControls(filteredCount) {
           </button>
         `).join("")}
       </div>
-      <label>
-        <span class="sr-only">Sort watches</span>
-        <select class="sort-select" id="sortSelect">
-          <option value="newest" ${state.filters.sort === "newest" ? "selected" : ""}>Newest</option>
-          <option value="price-desc" ${state.filters.sort === "price-desc" ? "selected" : ""}>Price high</option>
-          <option value="price-asc" ${state.filters.sort === "price-asc" ? "selected" : ""}>Price low</option>
-          <option value="category" ${state.filters.sort === "category" ? "selected" : ""}>Category</option>
-        </select>
-      </label>
-      <span class="section-meta">${filteredCount} shown</span>
     </section>
   `;
 }
@@ -411,12 +274,8 @@ function renderBoard(watches) {
       <div class="board-header">
         <div>
           <h2 class="section-title">${title}</h2>
-          <p class="section-meta">${state.filters.category === "all" ? "Every category" : state.filters.category} - ${state.filters.query ? "Search applied" : "Ready for the next addition"}</p>
+          <p class="section-meta">${watches.length} saved ${watches.length === 1 ? "watch" : "watches"}</p>
         </div>
-        <button class="button" type="button" data-action="open-add">
-          ${icon("plus", 17)}
-          <span>Add</span>
-        </button>
       </div>
       ${watches.length ? `
         <div class="watch-table" role="table" aria-label="Watches">
@@ -445,7 +304,6 @@ function renderWatchRow(watch) {
       <div class="watch-identity" role="cell">
         <div class="row-thumb">
         <img class="watch-image" src="${escapeAttr(watch.imageUrl || makeWatchImage(watch.category, watch.id.length))}" alt="${escapeAttr(`${watch.brand} ${watch.model}`)}" data-category="${escapeAttr(watch.category)}" />
-          ${watch.favorite ? `<span class="favorite-dot" title="Priority">${icon("heartFilled", 14)}</span>` : ""}
         </div>
         <div>
           <div class="watch-kicker">${escapeHtml(watch.brand)}</div>
@@ -471,9 +329,6 @@ function renderWatchRow(watch) {
             <span>${watch.status === "owned" ? "Wishlist" : "Owned"}</span>
           </button>
           <div class="action-group">
-            <button class="button button-icon" type="button" data-action="toggle-favorite" data-id="${watch.id}" title="Toggle priority" aria-label="Toggle priority">
-              ${icon(watch.favorite ? "heartFilled" : "heart", 16)}
-            </button>
             <button class="button button-icon" type="button" data-action="edit" data-id="${watch.id}" title="Edit watch" aria-label="Edit watch">
               ${icon("edit", 16)}
             </button>
@@ -499,7 +354,6 @@ function renderEmptyState() {
 }
 
 function renderCalculator(summary) {
-  const maxCategoryTotal = Math.max(1, ...summary.categoryStats.map((item) => item.wishlistTotal));
   const needed = summary.categoryStats
     .filter((item) => item.owned < item.target)
     .sort((a, b) => (b.target - b.owned) - (a.target - a.owned) || b.wishlistCount - a.wishlistCount);
@@ -517,10 +371,10 @@ function renderCalculator(summary) {
         <div class="total-panel">
           <div class="total-label">Wishlist total</div>
           <div class="total-value">${formatCurrency(summary.wishlistTotal)}</div>
-          <p class="total-caption">${summary.wishlistCount} wishlist watches across ${summary.wishlistCategories} categories</p>
+          <p class="total-caption">${summary.wishlistCount} wishlist ${summary.wishlistCount === 1 ? "watch" : "watches"}</p>
         </div>
         <div class="budget-control">
-          <label for="budgetInput">Purchase budget</label>
+          <label for="budgetInput">Budget</label>
           <input id="budgetInput" type="number" min="0" step="50" value="${state.budget}" inputmode="decimal" />
         </div>
         <div class="delta">
@@ -529,21 +383,7 @@ function renderCalculator(summary) {
             : `<strong>${formatCurrency(Math.abs(summary.budgetDelta))}</strong> above the current budget.`}
         </div>
         <div>
-          <h3 class="section-title">By category</h3>
-          <div class="summary-list">
-            ${summary.categoryStats.map((item) => `
-              <div class="summary-row">
-                <span>${item.name}</span>
-                <strong>${formatCurrency(item.wishlistTotal)}</strong>
-                <span class="bar" aria-hidden="true">
-                  <span style="--value: ${Math.max(3, (item.wishlistTotal / maxCategoryTotal) * 100)}%"></span>
-                </span>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-        <div>
-          <h3 class="section-title">Needed next</h3>
+          <h3 class="section-title">Category gaps</h3>
           <div class="needs-list">
             ${needed.length ? needed.map((item) => `
               <div class="need-item">
@@ -584,8 +424,7 @@ function renderDrawer() {
     price: "",
     sourceUrl: "",
     imageUrl: "",
-    notes: "",
-    favorite: false
+    notes: ""
   };
 
   return `
@@ -599,11 +438,8 @@ function renderDrawer() {
         </div>
         <div class="drawer-body">
           <div class="field is-wide">
-            <label for="sourceUrl">Paste URL</label>
-            <div class="url-row">
-              <input id="sourceUrl" name="sourceUrl" type="url" value="${escapeAttr(watch.sourceUrl)}" placeholder="https://shop.example.com/watch-page" required />
-              <button class="button" type="button" data-action="parse-url">${icon("wand", 16)}<span>Read URL</span></button>
-            </div>
+            <label for="sourceUrl">Watch page URL</label>
+            <input id="sourceUrl" name="sourceUrl" type="url" value="${escapeAttr(watch.sourceUrl)}" placeholder="https://shop.example.com/watch-page" required />
           </div>
           <div class="form-grid">
             <div class="field">
@@ -631,15 +467,8 @@ function renderDrawer() {
               <label for="price">Price</label>
               <input id="price" name="price" type="number" min="0" step="1" value="${escapeAttr(String(watch.price ?? ""))}" placeholder="2500" inputmode="decimal" required />
             </div>
-            <div class="field">
-              <label for="favorite">Priority</label>
-              <select id="favorite" name="favorite">
-                <option value="false" ${!watch.favorite ? "selected" : ""}>Normal</option>
-                <option value="true" ${watch.favorite ? "selected" : ""}>Priority</option>
-              </select>
-            </div>
             <div class="field is-wide">
-              <label for="imageUrl">Image URL</label>
+              <label for="imageUrl">Photo URL</label>
               <input id="imageUrl" name="imageUrl" type="url" value="${escapeAttr(watch.imageUrl && !watch.imageUrl.startsWith("data:") ? watch.imageUrl : "")}" placeholder="https://image.example.com/watch.jpg" />
             </div>
             <div class="field is-wide">
@@ -684,9 +513,6 @@ function getSummary() {
     wishlistTotal,
     ownedValue,
     budgetDelta: state.budget - wishlistTotal,
-    wishlistCategories: new Set(wishlist.map((watch) => watch.category)).size,
-    coveredCategories: categoryStats.filter((item) => item.owned >= item.target).length,
-    openCategories: categoryStats.filter((item) => item.owned < item.target).length,
     categoryStats
   };
 }
@@ -709,14 +535,7 @@ function getFilteredWatches() {
       ].join(" ").toLowerCase();
       return haystack.includes(query);
     })
-    .sort(sortWatches);
-}
-
-function sortWatches(a, b) {
-  if (state.filters.sort === "price-desc") return (Number(b.price) || 0) - (Number(a.price) || 0);
-  if (state.filters.sort === "price-asc") return (Number(a.price) || 0) - (Number(b.price) || 0);
-  if (state.filters.sort === "category") return a.category.localeCompare(b.category) || a.brand.localeCompare(b.brand);
-  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 }
 
 function handleClick(event) {
@@ -737,14 +556,9 @@ function handleClick(event) {
   if (action === "close-drawer") closeDrawer();
   if (action === "tab") setTab(trigger.dataset.tab);
   if (action === "category") setCategory(trigger.dataset.category);
-  if (action === "nav") handleNav(trigger.dataset.nav);
   if (action === "edit") editWatch(trigger.dataset.id);
   if (action === "delete") deleteWatch(trigger.dataset.id);
   if (action === "toggle-status") toggleStatus(trigger.dataset.id);
-  if (action === "toggle-favorite") toggleFavorite(trigger.dataset.id);
-  if (action === "parse-url") parseDrawerUrl();
-  if (action === "export-csv") exportCsv();
-  if (action === "reset-samples") resetSamples();
 }
 
 function handleInput(event) {
@@ -756,14 +570,6 @@ function handleInput(event) {
 
   if (event.target.id === "budgetInput") {
     state.budget = Number(event.target.value) || 0;
-    persist();
-    render();
-  }
-}
-
-function handleChange(event) {
-  if (event.target.id === "sortSelect") {
-    state.filters.sort = event.target.value;
     persist();
     render();
   }
@@ -789,7 +595,6 @@ function handleSubmit(event) {
     sourceUrl: normalizeUrl(form.get("sourceUrl")),
     imageUrl: imageUrl || existing?.imageUrl || makeWatchImage(category, state.watches.length + 1),
     notes: cleanText(form.get("notes")),
-    favorite: form.get("favorite") === "true",
     createdAt: existing?.createdAt || new Date().toISOString()
   };
 
@@ -834,30 +639,6 @@ function setCategory(category) {
   render();
 }
 
-function handleNav(nav) {
-  if (nav === "collection") {
-    state.filters.tab = "all";
-    state.filters.category = "all";
-  }
-
-  if (nav === "wishlist") {
-    state.filters.tab = "wishlist";
-  }
-
-  if (nav === "categories") {
-    state.filters.tab = "all";
-    state.filters.category = state.filters.category === "all" ? "Dress" : state.filters.category;
-  }
-
-  if (nav === "calculator") {
-    document.querySelector(".calculator")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-
-  persist();
-  render();
-}
-
 function editWatch(id) {
   openDrawer(id);
 }
@@ -883,70 +664,6 @@ function toggleStatus(id) {
   render();
 }
 
-function toggleFavorite(id) {
-  state.watches = state.watches.map((watch) => {
-    if (watch.id !== id) return watch;
-    return { ...watch, favorite: !watch.favorite };
-  });
-  persist();
-  render();
-}
-
-function parseDrawerUrl() {
-  const form = document.querySelector("#watchForm");
-  if (!form) return;
-
-  const sourceUrl = form.elements.sourceUrl.value;
-  const parsed = inferWatchFromUrl(sourceUrl);
-
-  if (!parsed) {
-    showToast("Paste a valid watch page URL.");
-    return;
-  }
-
-  form.elements.sourceUrl.value = parsed.sourceUrl;
-  if (!form.elements.brand.value.trim()) form.elements.brand.value = parsed.brand;
-  if (!form.elements.model.value.trim()) form.elements.model.value = parsed.model;
-  if (parsed.category && form.elements.category) form.elements.category.value = parsed.category;
-  showToast("URL details filled.");
-}
-
-function exportCsv() {
-  const headers = ["Brand", "Model", "Category", "Status", "Price", "Source URL", "Notes"];
-  const rows = state.watches.map((watch) => [
-    watch.brand,
-    watch.model,
-    watch.category,
-    watch.status,
-    watch.price,
-    watch.sourceUrl,
-    watch.notes
-  ]);
-
-  const csv = [headers, ...rows]
-    .map((row) => row.map(csvCell).join(","))
-    .join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "watchlist-cabinet.csv";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  showToast("CSV exported.");
-}
-
-function resetSamples() {
-  const confirmed = window.confirm("Replace current watches with the sample cabinet?");
-  if (!confirmed) return;
-  localStorage.removeItem(STORAGE_KEY);
-  state = loadState();
-  showToast("Sample cabinet restored.");
-  render();
-}
-
 function showToast(message) {
   state.toast = message;
   window.clearTimeout(showToast.timer);
@@ -962,59 +679,6 @@ function bindImageFallbacks() {
       image.src = makeWatchImage(image.dataset.category || "Daily", index);
     }, { once: true });
   });
-}
-
-function inferWatchFromUrl(rawUrl) {
-  try {
-    const sourceUrl = normalizeUrl(rawUrl);
-    const url = new URL(sourceUrl);
-    const words = decodeURIComponent(url.pathname)
-      .replace(/\.[a-z0-9]+$/i, "")
-      .split(/[^a-z0-9]+/i)
-      .map((word) => word.trim())
-      .filter(Boolean)
-      .filter((word) => !["watch", "watches", "product", "products", "shop", "buy", "new", "men", "mens"].includes(word.toLowerCase()));
-
-    const brandMap = {
-      omega: "Omega",
-      rolex: "Rolex",
-      seiko: "Seiko",
-      tudor: "Tudor",
-      cartier: "Cartier",
-      nomos: "Nomos",
-      longines: "Longines",
-      hamilton: "Hamilton",
-      tissot: "Tissot",
-      sinn: "Sinn",
-      baltic: "Baltic",
-      citizen: "Citizen",
-      oris: "Oris",
-      tag: "TAG Heuer",
-      heuer: "TAG Heuer",
-      grand: "Grand Seiko"
-    };
-
-    const brandKey = words.find((word) => brandMap[word.toLowerCase()]);
-    const hostBrand = url.hostname.split(".").find((part) => brandMap[part.toLowerCase()]);
-    const brand = brandMap[brandKey?.toLowerCase()] || brandMap[hostBrand?.toLowerCase()] || titleCase(words[0] || url.hostname.split(".")[0]);
-    const modelWords = words.filter((word) => word.toLowerCase() !== brandKey?.toLowerCase()).slice(0, 5);
-    const model = titleCase(modelWords.join(" ") || "Watch candidate");
-    const category = inferCategory(words.join(" "));
-
-    return { sourceUrl, brand, model, category };
-  } catch {
-    return null;
-  }
-}
-
-function inferCategory(text) {
-  const value = text.toLowerCase();
-  if (value.includes("diver") || value.includes("submariner") || value.includes("aquascaphe")) return "Diver";
-  if (value.includes("chrono") || value.includes("speedmaster")) return "Chronograph";
-  if (value.includes("gmt") || value.includes("travel")) return "GMT";
-  if (value.includes("field") || value.includes("khaki")) return "Field";
-  if (value.includes("dress") || value.includes("tank") || value.includes("tangente")) return "Dress";
-  return "Daily";
 }
 
 function makeWatchImage(category, seed = 0) {
@@ -1053,25 +717,19 @@ function makeWatchImage(category, seed = 0) {
 
 function icon(name, size = 18) {
   const common = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"`;
-  const filled = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"`;
   const icons = {
     watch: `<svg ${common}><circle cx="12" cy="12" r="6"/><path d="M9 2h6"/><path d="M9 22h6"/><path d="M10 2l-1 4"/><path d="M14 2l1 4"/><path d="M10 22l-1-4"/><path d="M14 22l1-4"/><path d="M12 9v3l2 2"/></svg>`,
     heart: `<svg ${common}><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6z"/></svg>`,
-    heartFilled: `<svg ${filled}><path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`,
-    tag: `<svg ${common}><path d="M20 10v9a1 1 0 0 1-1 1h-9L3 13V4h9l8 6z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>`,
     calculator: `<svg ${common}><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/><path d="M8 15h.01"/><path d="M12 15h.01"/><path d="M16 15h.01"/></svg>`,
     search: `<svg ${common}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>`,
     plus: `<svg ${common}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
-    download: `<svg ${common}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>`,
-    refresh: `<svg ${common}><path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18 2v4h-4"/><path d="M6 22v-4h4"/></svg>`,
     check: `<svg ${common}><path d="M20 6 9 17l-5-5"/></svg>`,
     clock: `<svg ${common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
     link: `<svg ${common}><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg>`,
     edit: `<svg ${common}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`,
     trash: `<svg ${common}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>`,
     x: `<svg ${common}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
-    save: `<svg ${common}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>`,
-    wand: `<svg ${common}><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9H6"/><path d="M20 9h-2"/><path d="M17.8 6.2 19 5"/><path d="M11 9l-8 8 4 4 8-8"/><path d="m14 6 4 4"/></svg>`
+    save: `<svg ${common}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>`
   };
   return icons[name] || "";
 }
@@ -1106,22 +764,9 @@ function cleanText(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
 }
 
-function titleCase(value) {
-  return String(value || "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
-
 function createId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return `watch-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function csvCell(value) {
-  const text = String(value ?? "");
-  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function escapeHtml(value) {
@@ -1139,7 +784,6 @@ function escapeAttr(value) {
 
 document.addEventListener("click", handleClick);
 document.addEventListener("input", handleInput);
-document.addEventListener("change", handleChange);
 document.addEventListener("submit", handleSubmit);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && state.drawer.open) {
