@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import {
   Archive,
   BadgeCheck,
@@ -15,7 +15,6 @@ import {
   Image as ImageIcon,
   Link as LinkIcon,
   Loader2,
-  LogOut,
   Mountain,
   Pencil,
   Plane,
@@ -154,15 +153,6 @@ function App() {
     }
   }
 
-  async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setWatches([]);
-    setFilters(emptyFilters);
-    setBudget(22000);
-    setDrawer({ open: false, editingId: null });
-  }
-
   function updateFilters(nextFilters: Partial<CabinetFilters>) {
     setFilters((current) => ({ ...current, ...nextFilters }));
   }
@@ -277,14 +267,12 @@ function App() {
   return (
     <div className="app-shell">
       <main className="workspace">
-        <MobileHeader watchCount={watches.length} onAdd={() => openDrawer()} onSignOut={cloudUser ? signOut : undefined} />
+        <MobileHeader watchCount={watches.length} onAdd={() => openDrawer()} />
         <Topbar
           filters={filters}
           watchCount={watches.length}
-          user={cloudUser}
           onAdd={() => openDrawer()}
           onQueryChange={(query) => updateFilters({ query })}
-          onSignOut={signOut}
         />
         <MobileSummary summary={summary} />
         <Controls filters={filters} onChange={updateFilters} />
@@ -383,7 +371,7 @@ function GoogleMark() {
   );
 }
 
-function MobileHeader({ watchCount, onAdd, onSignOut }: { watchCount: number; onAdd: () => void; onSignOut?: () => void }) {
+function MobileHeader({ watchCount, onAdd }: { watchCount: number; onAdd: () => void }) {
   return (
     <header className="mobile-appbar" aria-label="Mobile app header">
       <div className="mobile-brand">
@@ -396,11 +384,6 @@ function MobileHeader({ watchCount, onAdd, onSignOut }: { watchCount: number; on
         </div>
       </div>
       <div className="mobile-header-actions">
-        {onSignOut ? (
-          <button className="button button-icon" type="button" onClick={onSignOut} aria-label="Sign out">
-            <LogOut size={16} />
-          </button>
-        ) : null}
         <button className="button button-primary mobile-add-button" type="button" onClick={onAdd}>
           <Plus size={17} />
           <span>Add</span>
@@ -413,17 +396,13 @@ function MobileHeader({ watchCount, onAdd, onSignOut }: { watchCount: number; on
 function Topbar({
   filters,
   watchCount,
-  user,
   onAdd,
-  onQueryChange,
-  onSignOut
+  onQueryChange
 }: {
   filters: CabinetFilters;
   watchCount: number;
-  user: User | null;
   onAdd: () => void;
   onQueryChange: (query: string) => void;
-  onSignOut: () => void;
 }) {
   return (
     <header className="topbar">
@@ -448,11 +427,6 @@ function Topbar({
           <Plus size={18} />
           <span>Add watch</span>
         </button>
-        {user ? (
-          <button className="button button-icon desktop-signout" type="button" onClick={onSignOut} aria-label="Sign out">
-            <LogOut size={16} />
-          </button>
-        ) : null}
       </div>
     </header>
   );
