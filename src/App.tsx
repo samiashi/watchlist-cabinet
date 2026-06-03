@@ -8,9 +8,11 @@ import {
   Check,
   Clock,
   Cloud,
+  FileText,
   Gem,
   Grid3X3,
   Heart,
+  Image as ImageIcon,
   Link as LinkIcon,
   Loader2,
   LogOut,
@@ -260,9 +262,10 @@ function App() {
   return (
     <div className="app-shell">
       <main className="workspace">
-        <MobileHeader onAdd={() => openDrawer()} onSignOut={cloudUser ? signOut : undefined} />
+        <MobileHeader watchCount={watches.length} onAdd={() => openDrawer()} onSignOut={cloudUser ? signOut : undefined} />
         <Topbar
           filters={filters}
+          watchCount={watches.length}
           user={cloudUser}
           onAdd={() => openDrawer()}
           onQueryChange={(query) => updateFilters({ query })}
@@ -351,7 +354,7 @@ function AuthGate({ message, onSignIn }: { message: string; onSignIn: (email: st
   );
 }
 
-function MobileHeader({ onAdd, onSignOut }: { onAdd: () => void; onSignOut?: () => void }) {
+function MobileHeader({ watchCount, onAdd, onSignOut }: { watchCount: number; onAdd: () => void; onSignOut?: () => void }) {
   return (
     <header className="mobile-appbar" aria-label="Mobile app header">
       <div className="mobile-brand">
@@ -360,7 +363,7 @@ function MobileHeader({ onAdd, onSignOut }: { onAdd: () => void; onSignOut?: () 
         </div>
         <div>
           <p className="mobile-brand-title">Cabinet</p>
-          <p className="mobile-brand-note">Shelf view</p>
+          <p className="mobile-brand-note">{formatWatchCount(watchCount)}</p>
         </div>
       </div>
       <div className="mobile-header-actions">
@@ -380,12 +383,14 @@ function MobileHeader({ onAdd, onSignOut }: { onAdd: () => void; onSignOut?: () 
 
 function Topbar({
   filters,
+  watchCount,
   user,
   onAdd,
   onQueryChange,
   onSignOut
 }: {
   filters: CabinetFilters;
+  watchCount: number;
   user: User | null;
   onAdd: () => void;
   onQueryChange: (query: string) => void;
@@ -394,8 +399,8 @@ function Topbar({
   return (
     <header className="topbar">
       <div>
-        <h2 className="page-title">Shelf</h2>
-        <p className="page-note">Display the collection, check the category gaps, and price the next watch in AED.</p>
+        <h1 className="page-title">Cabinet</h1>
+        <p className="page-note">{formatWatchCount(watchCount)} saved</p>
       </div>
       <div className="topbar-controls">
         <label className="search-box">
@@ -405,7 +410,7 @@ function Topbar({
             id="searchInput"
             type="search"
             value={filters.query}
-            placeholder="Search watches"
+            placeholder="Search"
             autoComplete="off"
             onChange={(event) => onQueryChange(event.target.value)}
           />
@@ -490,7 +495,7 @@ function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (f
           onClick={() => onChange({ category: "all" })}
         >
           <Archive size={15} />
-          All categories
+          All
         </button>
         {categories.map((category) => (
           <button
@@ -521,7 +526,8 @@ function Board({
   onDelete: (id: string) => void;
   onToggleStatus: (id: string) => void;
 }) {
-  const title = tab === "wishlist" ? "Wishlist shelf" : tab === "owned" ? "Owned shelf" : "Shelf";
+  const title = tab === "wishlist" ? "Wishlist" : tab === "owned" ? "Owned" : "Collection";
+  const [featuredWatch, ...remainingWatches] = watches;
 
   return (
     <section className="board" aria-label="Watch collection">
@@ -533,25 +539,31 @@ function Board({
         <ShelvingUnit size={22} />
       </div>
       {watches.length ? (
-        <div className="watch-table" role="table" aria-label="Watches">
-          <div className="watch-table-head" role="row">
-            <span>Watch</span>
-            <span>Status</span>
-            <span>Price</span>
-            <span>Actions</span>
-          </div>
-          <div className="watch-table-body">
-            {watches.map((watch, index) => (
-              <WatchRow
-                watch={watch}
-                index={index}
-                key={watch.id}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onToggleStatus={onToggleStatus}
-              />
-            ))}
-          </div>
+        <div className="watch-stack" aria-label="Watches">
+          <p className="collection-label">Featured</p>
+          <WatchRow
+            watch={featuredWatch}
+            index={0}
+            featured
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onToggleStatus={onToggleStatus}
+          />
+          {remainingWatches.length ? (
+            <div className="watch-list">
+              <p className="collection-label">All watches</p>
+              {remainingWatches.map((watch, index) => (
+                <WatchRow
+                  watch={watch}
+                  index={index + 1}
+                  key={watch.id}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onToggleStatus={onToggleStatus}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : (
         <EmptyState />
@@ -563,12 +575,14 @@ function Board({
 function WatchRow({
   watch,
   index,
+  featured = false,
   onEdit,
   onDelete,
   onToggleStatus
 }: {
   watch: Watch;
   index: number;
+  featured?: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleStatus: (id: string) => void;
@@ -578,8 +592,8 @@ function WatchRow({
   const sourceDomain = getDomain(watch.sourceUrl);
 
   return (
-    <article className={`watch-row is-${watch.status}`} role="row">
-      <div className="shelf-visual" role="cell">
+    <article className={`watch-row is-${watch.status} ${featured ? "is-featured" : ""}`}>
+      <div className="shelf-visual">
         <div className="row-thumb">
           <img
             className="watch-image"
@@ -595,13 +609,13 @@ function WatchRow({
           {statusLabel}
         </div>
       </div>
-      <div className="watch-copy" role="cell">
+      <div className="watch-copy">
         <div className="watch-topline">
           <div>
             <div className="watch-kicker">{watch.brand}</div>
             <h3 className="watch-name">{watch.model}</h3>
           </div>
-          <div className="price" role="cell">
+          <div className="price">
             <Banknote size={16} />
             {formatCurrency(watch.price)}
           </div>
@@ -617,7 +631,7 @@ function WatchRow({
           </a>
         </div>
         <p className="watch-notes">{watch.notes || "No notes yet."}</p>
-        <div className="watch-actions" role="cell">
+        <div className="watch-actions">
           <button className="button" type="button" onClick={() => onToggleStatus(watch.id)} title={nextStatusLabel}>
             {watch.status === "owned" ? <Heart size={15} /> : <Check size={15} />}
             <span>{watch.status === "owned" ? "Wishlist" : "Owned"}</span>
@@ -787,20 +801,32 @@ function WatchDrawer({
         </div>
         <div className="drawer-body">
           <div className="field is-wide">
-            <label htmlFor="sourceUrl">Watch page URL</label>
+            <label htmlFor="sourceUrl">
+              <LinkIcon size={15} />
+              Watch page URL
+            </label>
             <input id="sourceUrl" name="sourceUrl" type="url" defaultValue={watch.sourceUrl} placeholder="https://shop.example.com/watch-page" required />
           </div>
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="brand">Brand</label>
+              <label htmlFor="brand">
+                <BadgeCheck size={15} />
+                Brand
+              </label>
               <input id="brand" name="brand" defaultValue={watch.brand} placeholder="Omega" required />
             </div>
             <div className="field">
-              <label htmlFor="model">Model</label>
+              <label htmlFor="model">
+                <WatchIcon size={15} />
+                Model
+              </label>
               <input id="model" name="model" defaultValue={watch.model} placeholder="Speedmaster" required />
             </div>
             <div className="field">
-              <label htmlFor="category">Category</label>
+              <label htmlFor="category">
+                <Grid3X3 size={15} />
+                Category
+              </label>
               <select id="category" name="category" defaultValue={watch.category}>
                 {categories.map((category) => (
                   <option value={category.name} key={category.name}>
@@ -810,18 +836,27 @@ function WatchDrawer({
               </select>
             </div>
             <div className="field">
-              <label htmlFor="status">Status</label>
+              <label htmlFor="status">
+                <Heart size={15} />
+                Status
+              </label>
               <select id="status" name="status" defaultValue={watch.status}>
                 <option value="wishlist">Wishlist</option>
                 <option value="owned">Owned</option>
               </select>
             </div>
             <div className="field">
-              <label htmlFor="price">Price (AED)</label>
+              <label htmlFor="price">
+                <Banknote size={15} />
+                Price (AED)
+              </label>
               <input id="price" name="price" type="number" min="0" step="1" defaultValue={String(watch.price ?? "")} placeholder="9200" inputMode="decimal" required />
             </div>
             <div className="field is-wide">
-              <label htmlFor="imageUrl">Photo URL</label>
+              <label htmlFor="imageUrl">
+                <ImageIcon size={15} />
+                Photo URL
+              </label>
               <input
                 id="imageUrl"
                 name="imageUrl"
@@ -831,7 +866,10 @@ function WatchDrawer({
               />
             </div>
             <div className="field is-wide">
-              <label htmlFor="notes">Notes</label>
+              <label htmlFor="notes">
+                <FileText size={15} />
+                Notes
+              </label>
               <textarea id="notes" name="notes" defaultValue={watch.notes || ""} placeholder="Why this watch belongs in the cabinet" />
             </div>
           </div>

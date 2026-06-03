@@ -2,7 +2,7 @@
 
 # Watchlist Cabinet
 
-A private, mobile-first watch shelf for tracking owned watches, wishlist watches, category gaps, and the AED cost of the next collection move.
+A private, mobile-first watch cabinet for tracking owned watches, wishlist watches, category gaps, and the AED cost of the next collection move.
 
 ![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&labelColor=111317)
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&labelColor=111317)
@@ -12,7 +12,7 @@ A private, mobile-first watch shelf for tracking owned watches, wishlist watches
 
 </div>
 
-Built for quick use on an iPhone, with a dark-only shelf interface, large watch images, simple watch entry, and optional Supabase sync for persistent storage.
+Built for quick use on an iPhone, with a dark-only native-feeling interface, large watch images, simple watch entry, and optional Supabase sync for persistent storage.
 
 ## Screenshots
 
@@ -30,7 +30,7 @@ Desktop layout for wider screens.
 ## Highlights
 
 - Save watches from any website with a source URL.
-- Display the collection as shelf cards with large watch images.
+- Display the collection with a large featured watch and compact watch cards.
 - Track owned watches and wishlist watches in one view.
 - Filter by status and category: Dress, Diver, Field, Chronograph, GMT, and Daily.
 - Calculate wishlist total, owned value, budget gap, and missing category coverage in AED.
