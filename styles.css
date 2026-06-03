@@ -14,10 +14,9 @@
   --wishlist: #d96a86;
   --owned: #83c995;
   --gold: #d4bd73;
-  --brass: #8a7244;
   --red: #e17478;
   --shadow: 0 22px 58px rgba(0, 0, 0, 0.42);
-  --shelf-shadow: 0 16px 28px rgba(0, 0, 0, 0.34);
+  --card-shadow: 0 18px 36px rgba(0, 0, 0, 0.34);
   --radius: 8px;
   --max-width: 1180px;
   --calc-width: 330px;
@@ -486,28 +485,15 @@ a {
 .watch-row {
   position: relative;
   min-width: 0;
-  padding: 12px;
+  padding: 12px 12px 14px;
   border: 1px solid rgba(72, 79, 93, 0.84);
   border-radius: var(--radius);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
     #14171d;
-  box-shadow: var(--shelf-shadow);
+  box-shadow: var(--card-shadow);
   display: grid;
   gap: 12px;
-}
-
-.watch-row::after {
-  content: "";
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: -7px;
-  height: 9px;
-  border-radius: 0 0 8px 8px;
-  background: linear-gradient(90deg, #4b3f2a, #b0985d 18%, #413826 48%, #c3ad6d 74%, #4b3f2a);
-  opacity: 0.54;
-  filter: blur(0.2px);
 }
 
 .watch-row:hover {
@@ -519,7 +505,7 @@ a {
 
 .shelf-visual {
   position: relative;
-  min-height: 218px;
+  min-height: 206px;
 }
 
 .row-thumb {
@@ -529,9 +515,7 @@ a {
   overflow: hidden;
   border: 1px solid rgba(72, 79, 93, 0.9);
   border-radius: var(--radius);
-  background:
-    radial-gradient(circle at 50% 28%, rgba(212, 189, 115, 0.11), transparent 42%),
-    var(--surface-soft);
+  background: linear-gradient(180deg, #20252e, #12161d);
 }
 
 .row-thumb::before {
@@ -548,20 +532,6 @@ a {
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.shelf-ledge {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 0;
-  height: 18px;
-  border: 1px solid rgba(212, 189, 115, 0.26);
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0)),
-    linear-gradient(90deg, #322c20, #9a8453 20%, #25241f 50%, #bea867 78%, #342d20);
-  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.28);
 }
 
 .watch-copy {
@@ -1199,12 +1169,12 @@ svg {
   }
 
   .watch-row {
-    padding: 12px;
+    padding: 12px 12px 14px;
     gap: 11px;
   }
 
   .shelf-visual {
-    min-height: 242px;
+    min-height: 230px;
   }
 
   .row-thumb {

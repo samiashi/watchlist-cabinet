@@ -594,13 +594,12 @@ function WatchRow({
           {watch.status === "owned" ? <Check size={13} /> : <Clock size={13} />}
           {statusLabel}
         </div>
-        <div className="shelf-ledge" aria-hidden="true" />
       </div>
       <div className="watch-copy" role="cell">
         <div className="watch-topline">
           <div>
-          <div className="watch-kicker">{watch.brand}</div>
-          <h3 className="watch-name">{watch.model}</h3>
+            <div className="watch-kicker">{watch.brand}</div>
+            <h3 className="watch-name">{watch.model}</h3>
           </div>
           <div className="price" role="cell">
             <Banknote size={16} />
@@ -619,25 +618,25 @@ function WatchRow({
         </div>
         <p className="watch-notes">{watch.notes || "No notes yet."}</p>
         <div className="watch-actions" role="cell">
-        <button className="button" type="button" onClick={() => onToggleStatus(watch.id)} title={nextStatusLabel}>
-          {watch.status === "owned" ? <Heart size={15} /> : <Check size={15} />}
-          <span>{watch.status === "owned" ? "Wishlist" : "Owned"}</span>
-        </button>
-        <div className="action-group">
-          <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
-            <Pencil size={16} />
+          <button className="button" type="button" onClick={() => onToggleStatus(watch.id)} title={nextStatusLabel}>
+            {watch.status === "owned" ? <Heart size={15} /> : <Check size={15} />}
+            <span>{watch.status === "owned" ? "Wishlist" : "Owned"}</span>
           </button>
-          <button
-            className="button button-icon button-danger"
-            type="button"
-            onClick={() => onDelete(watch.id)}
-            title="Delete watch"
-            aria-label="Delete watch"
-          >
-            <Trash2 size={16} />
-          </button>
+          <div className="action-group">
+            <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
+              <Pencil size={16} />
+            </button>
+            <button
+              className="button button-icon button-danger"
+              type="button"
+              onClick={() => onDelete(watch.id)}
+              title="Delete watch"
+              aria-label="Delete watch"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
-      </div>
       </div>
     </article>
   );
