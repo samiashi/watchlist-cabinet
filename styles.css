@@ -908,15 +908,18 @@ svg {
   border-radius: var(--radius);
   background: #ffffff;
   overflow: hidden;
-  display: grid;
-  place-items: center;
+  padding: clamp(18px, 4vmin, 46px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   touch-action: pan-y;
 }
 
 .image-preview-frame img {
-  width: 100%;
-  height: 100%;
-  max-height: none;
+  width: auto;
+  height: auto;
+  max-width: min(820px, calc(100vw - 160px));
+  max-height: min(680px, calc(100svh - 250px));
   object-fit: contain;
   background: #ffffff;
   display: block;
@@ -1643,6 +1646,15 @@ svg {
   .image-preview-stage {
     padding: 8px;
     gap: 8px;
+  }
+
+  .image-preview-frame {
+    padding: 12px;
+  }
+
+  .image-preview-frame img {
+    max-width: calc(100vw - 44px);
+    max-height: calc(100svh - 190px);
   }
 
   .preview-nav {
