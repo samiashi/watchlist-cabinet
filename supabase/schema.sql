@@ -66,7 +66,7 @@ values (
   'watch-images',
   true,
   10485760,
-  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 )
 on conflict (id) do update
 set

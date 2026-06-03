@@ -70,7 +70,7 @@ export async function uploadWatchImages(user: User, watchId: string, files: File
     const path = `${user.id}/${watchId}/${Date.now()}-${index}-${cleanFileName(file.name)}`;
     const { error } = await client.storage.from(watchImageBucket).upload(path, file, {
       cacheControl: "31536000",
-      contentType: file.type || undefined,
+      contentType: getImageContentType(file),
       upsert: false
     });
 
@@ -169,4 +169,9 @@ function cleanFileName(value: string) {
     .replace(/^-+|-+$/g, "");
 
   return cleaned || "watch-image";
+}
+
+function getImageContentType(file: File) {
+  if (file.type) return file.type;
+  return file.name.toLowerCase().endsWith(".avif") ? "image/avif" : undefined;
 }

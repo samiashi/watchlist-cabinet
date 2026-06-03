@@ -633,7 +633,7 @@ svg {
   height: 100%;
   object-fit: contain;
   object-position: center;
-  background: #f2f2f3;
+  background: #ffffff;
   display: block;
 }
 
@@ -969,7 +969,7 @@ svg {
   width: 100%;
   max-height: min(78svh, 780px);
   object-fit: contain;
-  background: #f2f2f3;
+  background: #ffffff;
   border-radius: var(--radius);
   display: block;
 }
@@ -1045,7 +1045,7 @@ svg {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #f2f2f3;
+  background: #ffffff;
   display: block;
 }
 

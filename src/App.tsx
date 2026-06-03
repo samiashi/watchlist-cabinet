@@ -1134,7 +1134,7 @@ function WatchDrawer({
                 <Upload size={15} />
                 Upload images
               </label>
-              <input id="imageFiles" name="imageFiles" type="file" accept="image/*" multiple />
+              <input id="imageFiles" name="imageFiles" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple />
               <p className="field-help">Uploaded files are served from the Supabase `watch-images` bucket.</p>
             </div>
           </div>
