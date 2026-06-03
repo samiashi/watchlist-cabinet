@@ -165,7 +165,9 @@ function render() {
     <div class="app-shell">
       ${renderSidebar(summary)}
       <main class="workspace">
+        ${renderMobileHeader()}
         ${renderTopbar()}
+        ${renderMobileSummary(summary)}
         ${renderMetrics(summary)}
         ${renderControls(filtered.length)}
         <div class="content-grid">
@@ -173,12 +175,31 @@ function render() {
           ${renderCalculator(summary)}
         </div>
       </main>
+      ${renderMobileBottomNav()}
       ${state.drawer.open ? renderDrawer() : ""}
       ${state.toast ? `<div class="toast" role="status">${escapeHtml(state.toast)}</div>` : ""}
     </div>
   `;
 
   bindImageFallbacks();
+}
+
+function renderMobileHeader() {
+  return `
+    <header class="mobile-appbar" aria-label="Mobile app header">
+      <div class="mobile-brand">
+        <div class="brand-mark" aria-hidden="true">${icon("watch", 19)}</div>
+        <div>
+          <p class="mobile-brand-title">Cabinet</p>
+          <p class="mobile-brand-note">Watchlist Cabinet</p>
+        </div>
+      </div>
+      <button class="button button-primary mobile-add-button" type="button" data-action="open-add">
+        ${icon("plus", 17)}
+        <span>Add</span>
+      </button>
+    </header>
+  `;
 }
 
 function renderSidebar(summary) {
@@ -258,6 +279,33 @@ function renderTopbar() {
   `;
 }
 
+function renderMobileSummary(summary) {
+  const budgetLabel = summary.budgetDelta >= 0
+    ? `${formatCurrency(summary.budgetDelta)} left`
+    : `${formatCurrency(Math.abs(summary.budgetDelta))} to go`;
+
+  return `
+    <section class="mobile-summary-card" aria-label="Cost summary">
+      <div class="mobile-summary-grid">
+        <div class="mobile-total-cell is-wishlist">
+          <span>Wishlist total</span>
+          <strong>${formatCurrency(summary.wishlistTotal)}</strong>
+          <small>${summary.wishlistCount} watches</small>
+        </div>
+        <div class="mobile-total-cell is-owned">
+          <span>Owned value</span>
+          <strong>${formatCurrency(summary.ownedValue)}</strong>
+          <small>${summary.ownedCount} watches</small>
+        </div>
+      </div>
+      <div class="mobile-budget-row">
+        <span>${icon("calculator", 17)} Budget gap</span>
+        <strong>${budgetLabel}</strong>
+      </div>
+    </section>
+  `;
+}
+
 function renderMetrics(summary) {
   return `
     <section class="metric-row" aria-label="Collection summary">
@@ -290,6 +338,26 @@ function renderMetrics(summary) {
         </div>
       </article>
     </section>
+  `;
+}
+
+function renderMobileBottomNav() {
+  const mobileItems = [
+    { id: "collection", label: "Collection", icon: "watch" },
+    { id: "wishlist", label: "Wishlist", icon: "heart" },
+    { id: "categories", label: "Categories", icon: "tag" },
+    { id: "calculator", label: "Costs", icon: "calculator" }
+  ];
+
+  return `
+    <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+      ${mobileItems.map((item) => `
+        <button class="mobile-nav-button ${isNavActive(item.id) ? "is-active" : ""}" type="button" data-action="nav" data-nav="${item.id}">
+          ${icon(item.icon, 18)}
+          <span>${item.label}</span>
+        </button>
+      `).join("")}
+    </nav>
   `;
 }
 
