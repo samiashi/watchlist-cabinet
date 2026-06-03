@@ -40,6 +40,7 @@ import { categories, type CabinetFilters, type CabinetSummary, type CategorySumm
 import { makeWatchImage } from "./lib/watchImages";
 
 const emptyFilters: CabinetFilters = { tab: "all", category: "all", query: "" };
+const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
 
 type DrawerState = { open: false; editingId: null } | { open: true; editingId: string | null };
 
@@ -75,13 +76,26 @@ function App() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      setAuthMessage("");
+      if (nextSession) setAuthMessage("");
     });
 
     return () => {
       active = false;
       listener.subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash);
+    const errorDescription = searchParams.get("error_description") || hashParams.get("error_description");
+
+    if (!errorDescription) return;
+
+    setAuthMessage(errorDescription.replace(/\+/g, " "));
+    window.history.replaceState({}, document.title, window.location.pathname);
   }, []);
 
   useEffect(() => {
@@ -128,7 +142,7 @@ function App() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getAuthRedirectUrl(),
         queryParams: {
           prompt: "select_account"
         }
@@ -311,6 +325,10 @@ function LoadingScreen() {
       </div>
     </main>
   );
+}
+
+function getAuthRedirectUrl() {
+  return (siteUrl || window.location.origin).replace(/\/+$/, "");
 }
 
 function AuthGate({ message, onSignIn }: { message: string; onSignIn: () => Promise<void> }) {

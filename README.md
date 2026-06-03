@@ -89,15 +89,27 @@ Add your Supabase values:
 ```bash
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_SITE_URL=https://watchlist-cabinet.vercel.app
 ```
 
 Enable the Google provider in Supabase Auth and add the Google OAuth client ID and secret there. In Google Cloud, include the Supabase callback URL for the project:
 
 ```text
-https://your-project-ref.supabase.co/auth/v1/callback
+https://privigxuqabpejscsolr.supabase.co/auth/v1/callback
 ```
 
-Also add your local and deployed app URLs to the allowed redirect URLs in Supabase Auth settings.
+In the Google Cloud OAuth client:
+
+- `Authorized JavaScript origins`: `https://watchlist-cabinet.vercel.app`
+- `Authorized redirect URIs`: `https://privigxuqabpejscsolr.supabase.co/auth/v1/callback`
+
+In Supabase Auth URL Configuration:
+
+- Set `Site URL` to the deployed app URL, not `http://localhost:3000`.
+- Add `https://watchlist-cabinet.vercel.app/**` to `Redirect URLs`.
+- Add local dev URLs if needed: `http://127.0.0.1:4173/**` and `http://localhost:4173/**`.
+
+If Google redirects back to `http://localhost:3000` with `bad_oauth_state`, Supabase is falling back to a stale Site URL or the requested redirect URL is not allow-listed.
 
 Restart the dev server:
 
@@ -120,6 +132,7 @@ Add the same Supabase env vars in Vercel project settings for Production, Previe
 ```bash
 VITE_SUPABASE_URL
 VITE_SUPABASE_PUBLISHABLE_KEY
+VITE_SITE_URL
 ```
 
 After that, pushes to `main` can deploy the phone-ready app.
