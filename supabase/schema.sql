@@ -65,3 +65,83 @@ create policy "Users can delete their watches"
 on public.watches for delete
 to authenticated
 using ((select auth.uid()) = user_id);
+
+create table if not exists public.watch_share_links (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  token uuid not null default gen_random_uuid() unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.watch_share_links enable row level security;
+
+drop policy if exists "Users can read their share link" on public.watch_share_links;
+drop policy if exists "Users can create their share link" on public.watch_share_links;
+drop policy if exists "Users can update their share link" on public.watch_share_links;
+drop policy if exists "Users can delete their share link" on public.watch_share_links;
+
+create policy "Users can read their share link"
+on public.watch_share_links for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Users can create their share link"
+on public.watch_share_links for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can update their share link"
+on public.watch_share_links for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can delete their share link"
+on public.watch_share_links for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+grant select, insert, update, delete on public.watch_share_links to authenticated;
+
+create or replace function public.get_shared_wishlist(share_token uuid)
+returns table (
+  id uuid,
+  brand text,
+  model text,
+  category text,
+  status text,
+  movement text,
+  case_size_mm numeric,
+  price numeric,
+  source_url text,
+  image_url text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    watches.id,
+    watches.brand,
+    watches.model,
+    watches.category,
+    watches.status,
+    watches.movement,
+    watches.case_size_mm,
+    watches.price,
+    watches.source_url,
+    watches.image_url,
+    watches.created_at,
+    watches.updated_at
+  from public.watch_share_links
+  join public.watches on watches.user_id = watch_share_links.user_id
+  where watch_share_links.token = share_token
+    and watches.status = 'wishlist'
+  order by watches.created_at desc;
+$$;
+
+revoke all on function public.get_shared_wishlist(uuid) from public;
+grant execute on function public.get_shared_wishlist(uuid) to anon, authenticated;

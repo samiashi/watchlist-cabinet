@@ -20,6 +20,7 @@ import {
   Ruler,
   Save,
   Search,
+  Share2,
   ShoppingBag,
   Sun,
   Timer,
@@ -28,7 +29,7 @@ import {
   Waves,
   X
 } from "lucide-react";
-import { deleteCloudWatch, loadCloudSnapshot, upsertCloudWatch } from "./lib/cloudStorage";
+import { deleteCloudWatch, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, upsertCloudWatch } from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
@@ -41,11 +42,17 @@ const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
 type DrawerState = { open: false; editingId: null } | { open: true; editingId: string | null };
 
 function App() {
+  const shareToken = getShareTokenFromPath();
+  return shareToken ? <SharedWishlistPage token={shareToken} /> : <CabinetApp />;
+}
+
+function CabinetApp() {
   const [watches, setWatches] = useState<Watch[]>([]);
   const [filters, setFilters] = useState<CabinetFilters>(emptyFilters);
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, editingId: null });
   const [previewWatch, setPreviewWatch] = useState<Watch | null>(null);
   const [toast, setToast] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [authMessage, setAuthMessage] = useState("");
@@ -148,6 +155,25 @@ function App() {
     }
   }
 
+  async function shareWishlist() {
+    if (!cloudUser) {
+      showToast("Sign in with Google to share your wishlist.");
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      const token = await getOrCreateShareLink(cloudUser);
+      const url = `${getAppBaseUrl()}/share/${token}`;
+      await copyShareUrl(url);
+      showToast("Wishlist link copied.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Wishlist link was not created.");
+    } finally {
+      setIsSharing(false);
+    }
+  }
+
   function updateFilters(nextFilters: Partial<CabinetFilters>) {
     setFilters((current) => ({ ...current, ...nextFilters }));
   }
@@ -241,10 +267,13 @@ function App() {
   return (
     <div className="app-shell">
       <main className="workspace">
-        <MobileHeader onAdd={() => openDrawer()} />
+        <MobileHeader canShare={Boolean(cloudUser)} isSharing={isSharing} onAdd={() => openDrawer()} onShare={shareWishlist} />
         <Topbar
           filters={filters}
+          canShare={Boolean(cloudUser)}
+          isSharing={isSharing}
           onAdd={() => openDrawer()}
+          onShare={shareWishlist}
           onQueryChange={(query) => updateFilters({ query })}
         />
         <MobileSummary summary={summary} />
@@ -288,6 +317,103 @@ function App() {
   );
 }
 
+function SharedWishlistPage({ token }: { token: string }) {
+  const [watches, setWatches] = useState<Watch[]>([]);
+  const [previewWatch, setPreviewWatch] = useState<Watch | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const wishlistTotal = useMemo(() => sum(watches.map((watch) => Number(watch.price) || 0)), [watches]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!isSupabaseConfigured) {
+      setError("Wishlist sharing needs Supabase configuration.");
+      setIsLoading(false);
+      return;
+    }
+
+    loadSharedWishlist(token)
+      .then((sharedWatches) => {
+        if (!active) return;
+        setWatches(sharedWatches);
+        setError("");
+      })
+      .catch(() => {
+        if (!active) return;
+        setError("This wishlist link is not available.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  return (
+    <div className="app-shell">
+      <main className="workspace shared-workspace">
+        <header className="shared-header">
+          <div className="shared-brand">
+            <div className="brand-mark" aria-hidden="true">
+              <WatchIcon size={20} />
+            </div>
+            <div>
+              <h1 className="shared-title">Wishlist</h1>
+              <p className="shared-meta">Shared from Cabinet</p>
+            </div>
+          </div>
+          <div className="shared-total">
+            <span>{formatWatchCount(watches.length)}</span>
+            <strong>{formatCurrency(wishlistTotal)}</strong>
+          </div>
+        </header>
+
+        <section className="board shared-board" aria-label="Shared wishlist">
+          {isLoading ? (
+            <div className="empty-state">
+              <div>
+                <Loader2 className="spin" size={36} />
+                <h2>Loading wishlist</h2>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="empty-state">
+              <div>
+                <WatchIcon size={44} />
+                <h2>Wishlist unavailable</h2>
+                <p>{error}</p>
+              </div>
+            </div>
+          ) : watches.length ? (
+            <div className="watch-grid" aria-label="Wishlist watches">
+              {watches.map((watch, index) => (
+                <WatchRow watch={watch} index={index} key={watch.id} onPreview={setPreviewWatch} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div>
+                <Heart size={44} />
+                <h2>No wishlist watches yet</h2>
+                <p>This shared wishlist is empty.</p>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+      {previewWatch ? (
+        <ImagePreview
+          watch={previewWatch}
+          onClose={() => setPreviewWatch(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function LoadingScreen() {
   return (
     <main className="auth-shell" aria-label="Loading cabinet">
@@ -300,7 +426,25 @@ function LoadingScreen() {
 }
 
 function getAuthRedirectUrl() {
+  return getAppBaseUrl();
+}
+
+function getAppBaseUrl() {
   return (siteUrl || window.location.origin).replace(/\/+$/, "");
+}
+
+function getShareTokenFromPath() {
+  const match = window.location.pathname.match(/^\/share\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+async function copyShareUrl(url: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url);
+    return;
+  }
+
+  window.prompt("Copy wishlist link", url);
 }
 
 function AuthGate({ message, onSignIn }: { message: string; onSignIn: () => Promise<void> }) {
@@ -355,7 +499,17 @@ function GoogleMark() {
   );
 }
 
-function MobileHeader({ onAdd }: { onAdd: () => void }) {
+function MobileHeader({
+  canShare,
+  isSharing,
+  onAdd,
+  onShare
+}: {
+  canShare: boolean;
+  isSharing: boolean;
+  onAdd: () => void;
+  onShare: () => void;
+}) {
   return (
     <header className="mobile-appbar" aria-label="Mobile app header">
       <div className="mobile-brand">
@@ -365,6 +519,11 @@ function MobileHeader({ onAdd }: { onAdd: () => void }) {
         <p className="mobile-brand-title">Cabinet</p>
       </div>
       <div className="mobile-header-actions">
+        {canShare ? (
+          <button className="button button-icon mobile-share-button" type="button" onClick={onShare} disabled={isSharing} aria-label="Share wishlist">
+            {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
+          </button>
+        ) : null}
         <button className="button button-primary mobile-add-button" type="button" onClick={onAdd}>
           <Plus size={17} />
           <span>Add</span>
@@ -376,11 +535,17 @@ function MobileHeader({ onAdd }: { onAdd: () => void }) {
 
 function Topbar({
   filters,
+  canShare,
+  isSharing,
   onAdd,
+  onShare,
   onQueryChange
 }: {
   filters: CabinetFilters;
+  canShare: boolean;
+  isSharing: boolean;
   onAdd: () => void;
+  onShare: () => void;
   onQueryChange: (query: string) => void;
 }) {
   return (
@@ -399,6 +564,12 @@ function Topbar({
             onChange={(event) => onQueryChange(event.target.value)}
           />
         </label>
+        {canShare ? (
+          <button className="button" type="button" onClick={onShare} disabled={isSharing}>
+            {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
+            <span>Share</span>
+          </button>
+        ) : null}
         <button className="button button-primary" type="button" onClick={onAdd}>
           <Plus size={18} />
           <span>Add watch</span>
@@ -524,7 +695,6 @@ function WatchRow({
   onPreview: (watch: Watch) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
-  const sourceDomain = getDomain(watch.sourceUrl);
 
   return (
     <article className={`watch-row is-${watch.status}`}>
@@ -577,10 +747,6 @@ function WatchRow({
             {watch.status === "owned" ? <Check size={13} /> : <Clock size={13} />}
             {statusLabel}
           </span>
-          <a className="source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
-            <LinkIcon size={13} />
-            <span>{sourceDomain}</span>
-          </a>
         </div>
       </div>
     </article>
@@ -607,10 +773,11 @@ function ImagePreview({
 }: {
   watch: Watch;
   onClose: () => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => Promise<void>;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => Promise<void>;
 }) {
   const imageUrl = watch.imageUrl || makeWatchImage(watch.category, watch.id);
+  const sourceDomain = getDomain(watch.sourceUrl);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -636,20 +803,28 @@ function ImagePreview({
           <div>
             <p>{watch.brand}</p>
             <h2>{watch.model}</h2>
+            <a className="preview-source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">
+              <LinkIcon size={13} />
+              <span>{sourceDomain}</span>
+            </a>
           </div>
           <div className="image-preview-actions">
-            <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
-              <Pencil size={16} />
-            </button>
-            <button
-              className="button button-icon button-danger"
-              type="button"
-              onClick={() => onDelete(watch.id)}
-              title="Delete watch"
-              aria-label="Delete watch"
-            >
-              <Trash2 size={16} />
-            </button>
+            {onEdit ? (
+              <button className="button button-icon" type="button" onClick={() => onEdit(watch.id)} title="Edit watch" aria-label="Edit watch">
+                <Pencil size={16} />
+              </button>
+            ) : null}
+            {onDelete ? (
+              <button
+                className="button button-icon button-danger"
+                type="button"
+                onClick={() => onDelete(watch.id)}
+                title="Delete watch"
+                aria-label="Delete watch"
+              >
+                <Trash2 size={16} />
+              </button>
+            ) : null}
             <button className="button button-icon" type="button" onClick={onClose} aria-label="Close image preview">
               <X size={18} />
             </button>

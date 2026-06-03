@@ -74,6 +74,10 @@ svg {
   gap: 12px;
 }
 
+.workspace > * {
+  min-width: 0;
+}
+
 .mobile-appbar {
   display: none;
 }
@@ -147,7 +151,7 @@ svg {
 .topbar-controls {
   min-width: min(100%, 400px);
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1fr) repeat(2, auto);
   align-items: center;
   gap: 8px;
 }
@@ -275,6 +279,64 @@ svg {
     var(--surface);
   box-shadow: var(--shadow);
   backdrop-filter: blur(28px) saturate(1.24);
+}
+
+.shared-workspace {
+  padding-top: 28px;
+}
+
+.shared-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.shared-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shared-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(30px, 3vw, 42px);
+  line-height: 0.98;
+  font-weight: 760;
+}
+
+.shared-meta {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.shared-total {
+  min-width: 0;
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.shared-total span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 640;
+}
+
+.shared-total strong {
+  color: var(--wishlist);
+  font-size: clamp(22px, 2.3vw, 30px);
+  line-height: 1;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.shared-board {
+  margin-top: 4px;
 }
 
 .mobile-summary-card {
@@ -556,12 +618,12 @@ svg {
 
 .watch-copy {
   min-width: 0;
-  height: 190px;
+  height: 168px;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 0 2px 2px;
 }
 
@@ -597,7 +659,8 @@ svg {
 }
 
 .row-meta {
-  min-height: 66px;
+  min-height: 32px;
+  margin-top: 2px;
   display: flex;
   align-content: flex-start;
   align-items: flex-start;
@@ -607,7 +670,7 @@ svg {
 }
 
 .category-label,
-.source-link {
+.preview-source-link {
   min-width: 0;
   height: 28px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -623,21 +686,24 @@ svg {
   text-decoration: none;
 }
 
-.category-label svg {
+.category-label svg,
+.preview-source-link svg {
   color: var(--accent-soft);
 }
 
-.source-link {
-  max-width: 100%;
+.preview-source-link {
+  width: fit-content;
+  max-width: min(100%, 230px);
+  margin-top: 8px;
 }
 
-.source-link span {
+.preview-source-link span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.source-link:hover {
+.preview-source-link:hover {
   color: #ffffff;
 }
 
@@ -764,6 +830,10 @@ svg {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.image-preview-header > div:first-child {
+  min-width: 0;
 }
 
 .image-preview-header p,
@@ -1045,6 +1115,11 @@ svg {
     padding: 0 13px;
   }
 
+  .mobile-share-button {
+    width: 40px;
+    height: 40px;
+  }
+
   .topbar {
     width: 100%;
     display: grid;
@@ -1064,6 +1139,10 @@ svg {
     width: 100%;
     min-width: 0;
     display: block;
+  }
+
+  .topbar-controls > .button {
+    display: none;
   }
 
   .search-box {
@@ -1116,7 +1195,7 @@ svg {
 
   .collection-controls {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 8px;
     margin-top: 2px;
   }
@@ -1135,6 +1214,27 @@ svg {
   .content-grid {
     display: block;
     margin-top: 2px;
+  }
+
+  .shared-workspace {
+    padding-top: calc(16px + env(safe-area-inset-top));
+  }
+
+  .shared-header {
+    align-items: flex-start;
+  }
+
+  .shared-brand .brand-mark {
+    width: 38px;
+    height: 38px;
+  }
+
+  .shared-title {
+    font-size: 28px;
+  }
+
+  .shared-total strong {
+    font-size: 20px;
   }
 
   .board {
@@ -1171,7 +1271,7 @@ svg {
   .watch-copy {
     height: 158px;
     min-height: 0;
-    gap: 9px;
+    gap: 11px;
     padding-bottom: 0;
   }
 
@@ -1204,12 +1304,9 @@ svg {
   }
 
   .row-meta {
-    min-height: 58px;
+    min-height: 54px;
+    margin-top: 3px;
     gap: 8px 6px;
-  }
-
-  .source-link {
-    display: none;
   }
 
   .category-label {
@@ -1244,6 +1341,10 @@ svg {
 
   .image-preview-actions {
     gap: 6px;
+  }
+
+  .preview-source-link {
+    max-width: min(100%, 210px);
   }
 
   .image-preview-header h2 {
@@ -1317,5 +1418,21 @@ svg {
     bottom: calc(16px + env(safe-area-inset-bottom));
     left: 16px;
     text-align: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-total-cell {
+    padding-right: 10px;
+  }
+
+  .mobile-total-cell strong {
+    font-size: clamp(20px, 5.2vw, 24px);
+  }
+
+  .collection-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: start;
   }
 }

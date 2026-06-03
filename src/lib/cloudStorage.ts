@@ -5,7 +5,7 @@ import { makeWatchImage } from "./watchImages";
 
 interface WatchRow {
   id: string;
-  user_id: string;
+  user_id?: string;
   brand: string;
   model: string;
   category: WatchCategory;
@@ -17,6 +17,10 @@ interface WatchRow {
   image_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface ShareLinkRow {
+  token: string;
 }
 
 export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
@@ -51,6 +55,39 @@ export async function deleteCloudWatch(id: string) {
 
   const { error } = await supabase.from("watches").delete().eq("id", id);
   if (error) throw error;
+}
+
+export async function getOrCreateShareLink(user: User) {
+  if (!supabase) throw new Error("Supabase is not configured.");
+
+  const existing = await supabase
+    .from("watch_share_links")
+    .select("token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing.error) throw existing.error;
+  if ((existing.data as ShareLinkRow | null)?.token) return (existing.data as ShareLinkRow).token;
+
+  const created = await supabase
+    .from("watch_share_links")
+    .insert({ user_id: user.id })
+    .select("token")
+    .single();
+
+  if (created.error) throw created.error;
+  return (created.data as ShareLinkRow).token;
+}
+
+export async function loadSharedWishlist(token: string): Promise<Watch[]> {
+  if (!supabase) throw new Error("Supabase is not configured.");
+
+  const { data, error } = await supabase.rpc("get_shared_wishlist", {
+    share_token: token
+  });
+
+  if (error) throw error;
+  return ((data || []) as WatchRow[]).map(fromWatchRow);
 }
 
 function fromWatchRow(row: WatchRow, index: number): Watch {
