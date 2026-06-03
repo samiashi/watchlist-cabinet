@@ -1,0 +1,1082 @@
+const STORAGE_KEY = "watchlist-cabinet-state-v2";
+
+const categories = [
+  { name: "Dress", target: 1 },
+  { name: "Diver", target: 1 },
+  { name: "Field", target: 1 },
+  { name: "Chronograph", target: 1 },
+  { name: "GMT", target: 1 },
+  { name: "Daily", target: 2 }
+];
+
+const navItems = [
+  { id: "collection", label: "Collection", icon: "watch" },
+  { id: "wishlist", label: "Wishlist", icon: "heart" },
+  { id: "categories", label: "Categories", icon: "tag" },
+  { id: "calculator", label: "Calculator", icon: "calculator" }
+];
+
+const categoryThemes = {
+  Dress: { bg: "#e8dfcf", case: "#b18a4a", dial: "#f9f4e8", strap: "#3a3030", detail: "#6d5634" },
+  Diver: { bg: "#dbe8ed", case: "#6c8792", dial: "#173544", strap: "#213642", detail: "#cddde3" },
+  Field: { bg: "#e0e6dc", case: "#61705f", dial: "#f2f0df", strap: "#4c513e", detail: "#485141" },
+  Chronograph: { bg: "#e7e3e0", case: "#777a7b", dial: "#f5f6f6", strap: "#26292c", detail: "#7a3440" },
+  GMT: { bg: "#dee7ee", case: "#607989", dial: "#f8f9f8", strap: "#2d3d45", detail: "#b18a4a" },
+  Daily: { bg: "#e9ecef", case: "#6e747a", dial: "#ffffff", strap: "#6b625b", detail: "#5d7f90" }
+};
+
+const sampleWatches = [
+  {
+    id: "seed-001",
+    brand: "Nomos",
+    model: "Tangente 38",
+    category: "Dress",
+    status: "wishlist",
+    price: 2440,
+    sourceUrl: "https://example-watch-shop.com/nomos-tangente-38",
+    imageUrl: "",
+    notes: "Clean hand-wound dress option for formal wear.",
+    favorite: true,
+    createdAt: "2026-05-03T09:00:00.000Z"
+  },
+  {
+    id: "seed-002",
+    brand: "Seiko",
+    model: "SPB143 Diver",
+    category: "Diver",
+    status: "owned",
+    price: 980,
+    sourceUrl: "https://example-watch-shop.com/seiko-spb143-diver",
+    imageUrl: "",
+    notes: "Daily-ready diver with a steel bracelet.",
+    favorite: false,
+    createdAt: "2026-04-16T09:00:00.000Z"
+  },
+  {
+    id: "seed-003",
+    brand: "Hamilton",
+    model: "Khaki Field Mechanical",
+    category: "Field",
+    status: "owned",
+    price: 595,
+    sourceUrl: "https://example-watch-shop.com/hamilton-khaki-field-mechanical",
+    imageUrl: "",
+    notes: "Simple field watch that covers casual weekends.",
+    favorite: false,
+    createdAt: "2026-03-02T09:00:00.000Z"
+  },
+  {
+    id: "seed-004",
+    brand: "Tissot",
+    model: "PRX Chronograph",
+    category: "Chronograph",
+    status: "wishlist",
+    price: 1995,
+    sourceUrl: "https://example-watch-shop.com/tissot-prx-chronograph",
+    imageUrl: "",
+    notes: "Integrated-bracelet chrono candidate.",
+    favorite: false,
+    createdAt: "2026-05-22T09:00:00.000Z"
+  },
+  {
+    id: "seed-005",
+    brand: "Baltic",
+    model: "Aquascaphe GMT",
+    category: "GMT",
+    status: "wishlist",
+    price: 1200,
+    sourceUrl: "https://example-watch-shop.com/baltic-aquascaphe-gmt",
+    imageUrl: "",
+    notes: "Travel watch option with color and restraint.",
+    favorite: true,
+    createdAt: "2026-05-24T09:00:00.000Z"
+  },
+  {
+    id: "seed-006",
+    brand: "Christopher Ward",
+    model: "C63 Sealander",
+    category: "Daily",
+    status: "owned",
+    price: 995,
+    sourceUrl: "https://example-watch-shop.com/christopher-ward-c63-sealander",
+    imageUrl: "",
+    notes: "Comfortable everyday three-hander.",
+    favorite: false,
+    createdAt: "2026-02-12T09:00:00.000Z"
+  }
+];
+
+const app = document.querySelector("#app");
+
+let state = loadState();
+
+function loadState() {
+  const fallbackWatches = sampleWatches.map((watch, index) => ({
+    ...watch,
+    imageUrl: makeWatchImage(watch.category, index)
+  }));
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && Array.isArray(saved.watches)) {
+      return {
+        watches: saved.watches.map((watch, index) => ({
+          ...watch,
+          imageUrl: watch.imageUrl || makeWatchImage(watch.category, index)
+        })),
+        filters: {
+          tab: saved.filters?.tab || "all",
+          category: saved.filters?.category || "all",
+          query: saved.filters?.query || "",
+          sort: saved.filters?.sort || "newest"
+        },
+        drawer: { open: false, editingId: null },
+        budget: Number(saved.budget) || 6000,
+        toast: ""
+      };
+    }
+  } catch (error) {
+    console.warn("Could not load Watchlist Cabinet state", error);
+  }
+
+  return {
+    watches: fallbackWatches,
+    filters: { tab: "all", category: "all", query: "", sort: "newest" },
+    drawer: { open: false, editingId: null },
+    budget: 6000,
+    toast: ""
+  };
+}
+
+function persist() {
+  const payload = {
+    watches: state.watches,
+    filters: state.filters,
+    budget: state.budget
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function render() {
+  const filtered = getFilteredWatches();
+  const summary = getSummary();
+
+  app.innerHTML = `
+    <div class="app-shell">
+      ${renderSidebar(summary)}
+      <main class="workspace">
+        ${renderTopbar()}
+        ${renderMetrics(summary)}
+        ${renderControls(filtered.length)}
+        <div class="content-grid">
+          ${renderBoard(filtered)}
+          ${renderCalculator(summary)}
+        </div>
+      </main>
+      ${state.drawer.open ? renderDrawer() : ""}
+      ${state.toast ? `<div class="toast" role="status">${escapeHtml(state.toast)}</div>` : ""}
+    </div>
+  `;
+
+  bindImageFallbacks();
+}
+
+function renderSidebar(summary) {
+  const maxCount = Math.max(1, ...summary.categoryStats.map((item) => item.owned + item.wishlist));
+
+  return `
+    <aside class="sidebar" aria-label="Watchlist Cabinet navigation">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">${icon("watch", 22)}</div>
+        <div>
+          <h1 class="brand-title">Watchlist Cabinet</h1>
+          <p class="brand-subtitle">Collection desk</p>
+        </div>
+      </div>
+      <nav class="nav-list" aria-label="Primary">
+        ${navItems.map((item) => `
+          <button class="nav-button ${isNavActive(item.id) ? "is-active" : ""}" type="button" data-action="nav" data-nav="${item.id}">
+            ${icon(item.icon, 18)}
+            <span>${item.label}</span>
+          </button>
+        `).join("")}
+      </nav>
+      <section class="sidebar-section" aria-label="Category coverage">
+        <p class="sidebar-label">Category coverage</p>
+        <div class="category-mini-list">
+          ${summary.categoryStats.map((item) => `
+            <button class="category-mini button-subtle" type="button" data-action="category" data-category="${item.name}">
+              <span>${item.name}</span>
+              <strong>${item.owned}/${item.target}</strong>
+              <span class="mini-meter" aria-hidden="true">
+                <span style="width: ${Math.min(100, ((item.owned + item.wishlist) / maxCount) * 100)}%"></span>
+              </span>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+      <div class="sidebar-actions">
+        <button class="button button-subtle" type="button" data-action="export-csv" title="Export watches to CSV">
+          ${icon("download", 17)}
+          <span>Export CSV</span>
+        </button>
+        <button class="button button-subtle" type="button" data-action="reset-samples" title="Reset sample collection">
+          ${icon("refresh", 17)}
+          <span>Reset samples</span>
+        </button>
+      </div>
+    </aside>
+  `;
+}
+
+function isNavActive(navId) {
+  if (navId === "wishlist") return state.filters.tab === "wishlist";
+  if (navId === "categories") return state.filters.tab !== "wishlist" && state.filters.category !== "all";
+  if (navId === "calculator") return false;
+  return state.filters.tab !== "wishlist" && state.filters.category === "all";
+}
+
+function renderTopbar() {
+  return `
+    <header class="topbar">
+      <div>
+        <h2 class="page-title">Collector board</h2>
+        <p class="page-note">Save watches from any shop page, track what you own, and price the wishlist before the next purchase.</p>
+      </div>
+      <div class="topbar-controls">
+        <label class="search-box">
+          <span class="sr-only">Search watches</span>
+          ${icon("search", 18)}
+          <input id="searchInput" type="search" value="${escapeAttr(state.filters.query)}" placeholder="Search brand, model, source" autocomplete="off" />
+        </label>
+        <button class="button button-primary" type="button" data-action="open-add">
+          ${icon("plus", 18)}
+          <span>Add watch</span>
+        </button>
+      </div>
+    </header>
+  `;
+}
+
+function renderMetrics(summary) {
+  return `
+    <section class="metric-row" aria-label="Collection summary">
+      <article class="metric">
+        <div class="metric-label">${icon("watch", 16)} Owned watches</div>
+        <div>
+          <div class="metric-value">${summary.ownedCount}</div>
+          <div class="metric-caption">${formatCurrency(summary.ownedValue)} current value</div>
+        </div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">${icon("heart", 16)} Wishlist watches</div>
+        <div>
+          <div class="metric-value">${summary.wishlistCount}</div>
+          <div class="metric-caption">${formatCurrency(summary.wishlistTotal)} to buy all</div>
+        </div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">${icon("tag", 16)} Categories covered</div>
+        <div>
+          <div class="metric-value">${summary.coveredCategories}/${categories.length}</div>
+          <div class="metric-caption">${summary.openCategories} category gaps</div>
+        </div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">${icon("calculator", 16)} Next budget</div>
+        <div>
+          <div class="metric-value">${formatCurrency(state.budget)}</div>
+          <div class="metric-caption">${summary.budgetDelta >= 0 ? `${formatCurrency(summary.budgetDelta)} left after wishlist` : `${formatCurrency(Math.abs(summary.budgetDelta))} short`}</div>
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderControls(filteredCount) {
+  const tabOptions = [
+    { id: "all", label: "All" },
+    { id: "owned", label: "Owned" },
+    { id: "wishlist", label: "Wishlist" }
+  ];
+
+  return `
+    <section class="controls-band" aria-label="Collection filters">
+      <div class="tabs" role="tablist" aria-label="Status">
+        ${tabOptions.map((tab) => `
+          <button class="tab ${state.filters.tab === tab.id ? "is-active" : ""}" type="button" data-action="tab" data-tab="${tab.id}">
+            ${tab.label}
+          </button>
+        `).join("")}
+      </div>
+      <div class="chip-row" aria-label="Category filters">
+        <button class="chip ${state.filters.category === "all" ? "is-active" : ""}" type="button" data-action="category" data-category="all">All categories</button>
+        ${categories.map((category) => `
+          <button class="chip ${state.filters.category === category.name ? "is-active" : ""}" type="button" data-action="category" data-category="${category.name}">
+            ${category.name}
+          </button>
+        `).join("")}
+      </div>
+      <label>
+        <span class="sr-only">Sort watches</span>
+        <select class="sort-select" id="sortSelect">
+          <option value="newest" ${state.filters.sort === "newest" ? "selected" : ""}>Newest</option>
+          <option value="price-desc" ${state.filters.sort === "price-desc" ? "selected" : ""}>Price high</option>
+          <option value="price-asc" ${state.filters.sort === "price-asc" ? "selected" : ""}>Price low</option>
+          <option value="category" ${state.filters.sort === "category" ? "selected" : ""}>Category</option>
+        </select>
+      </label>
+      <span class="section-meta">${filteredCount} shown</span>
+    </section>
+  `;
+}
+
+function renderBoard(watches) {
+  const title = state.filters.tab === "wishlist"
+    ? "Wishlist"
+    : state.filters.tab === "owned"
+      ? "Owned watches"
+      : "All watches";
+
+  return `
+    <section class="board" aria-label="Watch collection">
+      <div class="board-header">
+        <div>
+          <h2 class="section-title">${title}</h2>
+          <p class="section-meta">${state.filters.category === "all" ? "Every category" : state.filters.category} - ${state.filters.query ? "Search applied" : "Ready for the next addition"}</p>
+        </div>
+        <button class="button" type="button" data-action="open-add">
+          ${icon("plus", 17)}
+          <span>Add</span>
+        </button>
+      </div>
+      ${watches.length ? `
+        <div class="watch-table" role="table" aria-label="Watches">
+          <div class="watch-table-head" role="row">
+            <span>Watch</span>
+            <span>Status</span>
+            <span>Price</span>
+            <span>Actions</span>
+          </div>
+          <div class="watch-table-body">
+            ${watches.map(renderWatchRow).join("")}
+          </div>
+        </div>
+      ` : renderEmptyState()}
+    </section>
+  `;
+}
+
+function renderWatchRow(watch) {
+  const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
+  const nextStatusLabel = watch.status === "owned" ? "Move to wishlist" : "Mark owned";
+  const sourceDomain = getDomain(watch.sourceUrl);
+
+  return `
+    <article class="watch-row" role="row">
+      <div class="watch-identity" role="cell">
+        <div class="row-thumb">
+        <img class="watch-image" src="${escapeAttr(watch.imageUrl || makeWatchImage(watch.category, watch.id.length))}" alt="${escapeAttr(`${watch.brand} ${watch.model}`)}" data-category="${escapeAttr(watch.category)}" />
+          ${watch.favorite ? `<span class="favorite-dot" title="Priority">${icon("heartFilled", 14)}</span>` : ""}
+        </div>
+        <div>
+          <div class="watch-kicker">${escapeHtml(watch.brand)}</div>
+          <h3 class="watch-name">${escapeHtml(watch.model)}</h3>
+          <div class="row-meta">
+            <span class="category-label">${escapeHtml(watch.category)}</span>
+            <a class="source-link" href="${escapeAttr(normalizeUrl(watch.sourceUrl))}" target="_blank" rel="noreferrer">
+              ${icon("link", 13)}
+              <span>${escapeHtml(sourceDomain)}</span>
+            </a>
+          </div>
+          <p class="watch-notes">${escapeHtml(watch.notes || "No notes yet.")}</p>
+        </div>
+      </div>
+      <div class="status-badge is-${watch.status}" role="cell">
+        ${icon(watch.status === "owned" ? "check" : "clock", 13)}
+        ${statusLabel}
+      </div>
+      <div class="price" role="cell">${formatCurrency(watch.price)}</div>
+      <div class="watch-actions" role="cell">
+          <button class="button" type="button" data-action="toggle-status" data-id="${watch.id}" title="${nextStatusLabel}">
+            ${icon(watch.status === "owned" ? "heart" : "check", 15)}
+            <span>${watch.status === "owned" ? "Wishlist" : "Owned"}</span>
+          </button>
+          <div class="action-group">
+            <button class="button button-icon" type="button" data-action="toggle-favorite" data-id="${watch.id}" title="Toggle priority" aria-label="Toggle priority">
+              ${icon(watch.favorite ? "heartFilled" : "heart", 16)}
+            </button>
+            <button class="button button-icon" type="button" data-action="edit" data-id="${watch.id}" title="Edit watch" aria-label="Edit watch">
+              ${icon("edit", 16)}
+            </button>
+            <button class="button button-icon button-danger" type="button" data-action="delete" data-id="${watch.id}" title="Delete watch" aria-label="Delete watch">
+              ${icon("trash", 16)}
+            </button>
+          </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderEmptyState() {
+  return `
+    <div class="empty-state">
+      <div>
+        ${icon("watch", 44)}
+        <h2>No watches match this view</h2>
+        <p>Add a watch or loosen the filters to rebuild the cabinet view.</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderCalculator(summary) {
+  const maxCategoryTotal = Math.max(1, ...summary.categoryStats.map((item) => item.wishlistTotal));
+  const needed = summary.categoryStats
+    .filter((item) => item.owned < item.target)
+    .sort((a, b) => (b.target - b.owned) - (a.target - a.owned) || b.wishlistCount - a.wishlistCount);
+
+  return `
+    <aside class="calculator" aria-label="Wishlist price calculator">
+      <div class="calculator-header">
+        <div>
+          <h2 class="section-title">Price calculator</h2>
+          <p class="section-meta">Wishlist, owned value, and category gaps</p>
+        </div>
+        ${icon("calculator", 22)}
+      </div>
+      <div class="calculator-body">
+        <div class="total-panel">
+          <div class="total-label">Wishlist total</div>
+          <div class="total-value">${formatCurrency(summary.wishlistTotal)}</div>
+          <p class="total-caption">${summary.wishlistCount} wishlist watches across ${summary.wishlistCategories} categories</p>
+        </div>
+        <div class="budget-control">
+          <label for="budgetInput">Purchase budget</label>
+          <input id="budgetInput" type="number" min="0" step="50" value="${state.budget}" inputmode="decimal" />
+        </div>
+        <div class="delta">
+          ${summary.budgetDelta >= 0
+            ? `<strong>${formatCurrency(summary.budgetDelta)}</strong> left if you bought the wishlist.`
+            : `<strong>${formatCurrency(Math.abs(summary.budgetDelta))}</strong> above the current budget.`}
+        </div>
+        <div>
+          <h3 class="section-title">By category</h3>
+          <div class="summary-list">
+            ${summary.categoryStats.map((item) => `
+              <div class="summary-row">
+                <span>${item.name}</span>
+                <strong>${formatCurrency(item.wishlistTotal)}</strong>
+                <span class="bar" aria-hidden="true">
+                  <span style="--value: ${Math.max(3, (item.wishlistTotal / maxCategoryTotal) * 100)}%"></span>
+                </span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div>
+          <h3 class="section-title">Needed next</h3>
+          <div class="needs-list">
+            ${needed.length ? needed.map((item) => `
+              <div class="need-item">
+                <div class="need-title">
+                  <span>${item.name}</span>
+                  <span>${item.owned}/${item.target}</span>
+                </div>
+                <div class="need-text">${renderNeedText(item)}</div>
+              </div>
+            `).join("") : `
+              <div class="need-item">
+                <div class="need-title"><span>Balanced</span><span>${categories.length}/${categories.length}</span></div>
+                <div class="need-text">Every target category has at least one owned watch.</div>
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
+function renderNeedText(item) {
+  if (item.wishlistCount) {
+    return `${item.wishlistCount} wishlist candidate${item.wishlistCount === 1 ? "" : "s"} - lowest ${formatCurrency(item.lowestWishlist || 0)}`;
+  }
+
+  return `No wishlist candidate yet - add a ${item.name.toLowerCase()} watch.`;
+}
+
+function renderDrawer() {
+  const editing = state.drawer.editingId ? state.watches.find((watch) => watch.id === state.drawer.editingId) : null;
+  const watch = editing || {
+    brand: "",
+    model: "",
+    category: state.filters.category === "all" ? "Dress" : state.filters.category,
+    status: state.filters.tab === "owned" ? "owned" : "wishlist",
+    price: "",
+    sourceUrl: "",
+    imageUrl: "",
+    notes: "",
+    favorite: false
+  };
+
+  return `
+    <div class="drawer-backdrop" data-action="close-drawer">
+      <form class="drawer" id="watchForm" aria-label="${editing ? "Edit watch" : "Add watch"}">
+        <div class="drawer-header">
+          <h2 class="drawer-title">${editing ? "Edit watch" : "Add watch"}</h2>
+          <button class="button button-icon" type="button" data-action="close-drawer" aria-label="Close drawer">
+            ${icon("x", 18)}
+          </button>
+        </div>
+        <div class="drawer-body">
+          <div class="field is-wide">
+            <label for="sourceUrl">Paste URL</label>
+            <div class="url-row">
+              <input id="sourceUrl" name="sourceUrl" type="url" value="${escapeAttr(watch.sourceUrl)}" placeholder="https://shop.example.com/watch-page" required />
+              <button class="button" type="button" data-action="parse-url">${icon("wand", 16)}<span>Read URL</span></button>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label for="brand">Brand</label>
+              <input id="brand" name="brand" value="${escapeAttr(watch.brand)}" placeholder="Omega" required />
+            </div>
+            <div class="field">
+              <label for="model">Model</label>
+              <input id="model" name="model" value="${escapeAttr(watch.model)}" placeholder="Speedmaster" required />
+            </div>
+            <div class="field">
+              <label for="category">Category</label>
+              <select id="category" name="category">
+                ${categories.map((category) => `<option value="${category.name}" ${watch.category === category.name ? "selected" : ""}>${category.name}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label for="status">Status</label>
+              <select id="status" name="status">
+                <option value="wishlist" ${watch.status === "wishlist" ? "selected" : ""}>Wishlist</option>
+                <option value="owned" ${watch.status === "owned" ? "selected" : ""}>Owned</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="price">Price</label>
+              <input id="price" name="price" type="number" min="0" step="1" value="${escapeAttr(String(watch.price ?? ""))}" placeholder="2500" inputmode="decimal" required />
+            </div>
+            <div class="field">
+              <label for="favorite">Priority</label>
+              <select id="favorite" name="favorite">
+                <option value="false" ${!watch.favorite ? "selected" : ""}>Normal</option>
+                <option value="true" ${watch.favorite ? "selected" : ""}>Priority</option>
+              </select>
+            </div>
+            <div class="field is-wide">
+              <label for="imageUrl">Image URL</label>
+              <input id="imageUrl" name="imageUrl" type="url" value="${escapeAttr(watch.imageUrl && !watch.imageUrl.startsWith("data:") ? watch.imageUrl : "")}" placeholder="https://image.example.com/watch.jpg" />
+            </div>
+            <div class="field is-wide">
+              <label for="notes">Notes</label>
+              <textarea id="notes" name="notes" placeholder="Why this watch belongs in the cabinet">${escapeHtml(watch.notes || "")}</textarea>
+            </div>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="button" type="button" data-action="close-drawer">Cancel</button>
+          <button class="button button-primary" type="submit">${icon("save", 16)}<span>${editing ? "Save changes" : "Add watch"}</span></button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function getSummary() {
+  const owned = state.watches.filter((watch) => watch.status === "owned");
+  const wishlist = state.watches.filter((watch) => watch.status === "wishlist");
+  const wishlistTotal = sum(wishlist.map((watch) => Number(watch.price) || 0));
+  const ownedValue = sum(owned.map((watch) => Number(watch.price) || 0));
+
+  const categoryStats = categories.map((category) => {
+    const categoryOwned = owned.filter((watch) => watch.category === category.name);
+    const categoryWishlist = wishlist.filter((watch) => watch.category === category.name);
+    const wishlistPrices = categoryWishlist.map((watch) => Number(watch.price) || 0).filter(Boolean);
+
+    return {
+      name: category.name,
+      target: category.target,
+      owned: categoryOwned.length,
+      wishlistCount: categoryWishlist.length,
+      wishlistTotal: sum(categoryWishlist.map((watch) => Number(watch.price) || 0)),
+      lowestWishlist: wishlistPrices.length ? Math.min(...wishlistPrices) : 0
+    };
+  });
+
+  return {
+    ownedCount: owned.length,
+    wishlistCount: wishlist.length,
+    wishlistTotal,
+    ownedValue,
+    budgetDelta: state.budget - wishlistTotal,
+    wishlistCategories: new Set(wishlist.map((watch) => watch.category)).size,
+    coveredCategories: categoryStats.filter((item) => item.owned >= item.target).length,
+    openCategories: categoryStats.filter((item) => item.owned < item.target).length,
+    categoryStats
+  };
+}
+
+function getFilteredWatches() {
+  const query = state.filters.query.trim().toLowerCase();
+
+  return [...state.watches]
+    .filter((watch) => state.filters.tab === "all" || watch.status === state.filters.tab)
+    .filter((watch) => state.filters.category === "all" || watch.category === state.filters.category)
+    .filter((watch) => {
+      if (!query) return true;
+      const haystack = [
+        watch.brand,
+        watch.model,
+        watch.category,
+        watch.status,
+        watch.notes,
+        getDomain(watch.sourceUrl)
+      ].join(" ").toLowerCase();
+      return haystack.includes(query);
+    })
+    .sort(sortWatches);
+}
+
+function sortWatches(a, b) {
+  if (state.filters.sort === "price-desc") return (Number(b.price) || 0) - (Number(a.price) || 0);
+  if (state.filters.sort === "price-asc") return (Number(a.price) || 0) - (Number(b.price) || 0);
+  if (state.filters.sort === "category") return a.category.localeCompare(b.category) || a.brand.localeCompare(b.brand);
+  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+}
+
+function handleClick(event) {
+  const trigger = event.target.closest("[data-action]");
+  if (!trigger) return;
+
+  const action = trigger.dataset.action;
+
+  if (action === "close-drawer" && trigger.classList.contains("drawer-backdrop") && event.target !== trigger) {
+    return;
+  }
+
+  if (action !== "close-drawer") {
+    event.stopPropagation();
+  }
+
+  if (action === "open-add") openDrawer();
+  if (action === "close-drawer") closeDrawer();
+  if (action === "tab") setTab(trigger.dataset.tab);
+  if (action === "category") setCategory(trigger.dataset.category);
+  if (action === "nav") handleNav(trigger.dataset.nav);
+  if (action === "edit") editWatch(trigger.dataset.id);
+  if (action === "delete") deleteWatch(trigger.dataset.id);
+  if (action === "toggle-status") toggleStatus(trigger.dataset.id);
+  if (action === "toggle-favorite") toggleFavorite(trigger.dataset.id);
+  if (action === "parse-url") parseDrawerUrl();
+  if (action === "export-csv") exportCsv();
+  if (action === "reset-samples") resetSamples();
+}
+
+function handleInput(event) {
+  if (event.target.id === "searchInput") {
+    state.filters.query = event.target.value;
+    persist();
+    render();
+  }
+
+  if (event.target.id === "budgetInput") {
+    state.budget = Number(event.target.value) || 0;
+    persist();
+    render();
+  }
+}
+
+function handleChange(event) {
+  if (event.target.id === "sortSelect") {
+    state.filters.sort = event.target.value;
+    persist();
+    render();
+  }
+}
+
+function handleSubmit(event) {
+  if (event.target.id !== "watchForm") return;
+  event.preventDefault();
+
+  const form = new FormData(event.target);
+  const editingId = state.drawer.editingId;
+  const category = form.get("category");
+  const existing = editingId ? state.watches.find((watch) => watch.id === editingId) : null;
+  const imageUrl = String(form.get("imageUrl") || "").trim();
+
+  const watch = {
+    id: editingId || createId(),
+    brand: cleanText(form.get("brand")),
+    model: cleanText(form.get("model")),
+    category,
+    status: form.get("status"),
+    price: Number(form.get("price")) || 0,
+    sourceUrl: normalizeUrl(form.get("sourceUrl")),
+    imageUrl: imageUrl || existing?.imageUrl || makeWatchImage(category, state.watches.length + 1),
+    notes: cleanText(form.get("notes")),
+    favorite: form.get("favorite") === "true",
+    createdAt: existing?.createdAt || new Date().toISOString()
+  };
+
+  if (!watch.brand || !watch.model || !watch.sourceUrl) {
+    showToast("Brand, model, and URL are required.");
+    return;
+  }
+
+  if (editingId) {
+    state.watches = state.watches.map((item) => item.id === editingId ? watch : item);
+    showToast("Watch updated.");
+  } else {
+    state.watches = [watch, ...state.watches];
+    showToast("Watch added.");
+  }
+
+  state.drawer = { open: false, editingId: null };
+  persist();
+  render();
+}
+
+function openDrawer(editingId = null) {
+  state.drawer = { open: true, editingId };
+  render();
+  setTimeout(() => document.querySelector("#sourceUrl, #brand")?.focus(), 0);
+}
+
+function closeDrawer() {
+  state.drawer = { open: false, editingId: null };
+  render();
+}
+
+function setTab(tab) {
+  state.filters.tab = tab;
+  persist();
+  render();
+}
+
+function setCategory(category) {
+  state.filters.category = category;
+  persist();
+  render();
+}
+
+function handleNav(nav) {
+  if (nav === "collection") {
+    state.filters.tab = "all";
+    state.filters.category = "all";
+  }
+
+  if (nav === "wishlist") {
+    state.filters.tab = "wishlist";
+  }
+
+  if (nav === "categories") {
+    state.filters.tab = "all";
+    state.filters.category = state.filters.category === "all" ? "Dress" : state.filters.category;
+  }
+
+  if (nav === "calculator") {
+    document.querySelector(".calculator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  persist();
+  render();
+}
+
+function editWatch(id) {
+  openDrawer(id);
+}
+
+function deleteWatch(id) {
+  const watch = state.watches.find((item) => item.id === id);
+  if (!watch) return;
+  const confirmed = window.confirm(`Delete ${watch.brand} ${watch.model}?`);
+  if (!confirmed) return;
+
+  state.watches = state.watches.filter((item) => item.id !== id);
+  showToast("Watch deleted.");
+  persist();
+  render();
+}
+
+function toggleStatus(id) {
+  state.watches = state.watches.map((watch) => {
+    if (watch.id !== id) return watch;
+    return { ...watch, status: watch.status === "owned" ? "wishlist" : "owned" };
+  });
+  persist();
+  render();
+}
+
+function toggleFavorite(id) {
+  state.watches = state.watches.map((watch) => {
+    if (watch.id !== id) return watch;
+    return { ...watch, favorite: !watch.favorite };
+  });
+  persist();
+  render();
+}
+
+function parseDrawerUrl() {
+  const form = document.querySelector("#watchForm");
+  if (!form) return;
+
+  const sourceUrl = form.elements.sourceUrl.value;
+  const parsed = inferWatchFromUrl(sourceUrl);
+
+  if (!parsed) {
+    showToast("Paste a valid watch page URL.");
+    return;
+  }
+
+  form.elements.sourceUrl.value = parsed.sourceUrl;
+  if (!form.elements.brand.value.trim()) form.elements.brand.value = parsed.brand;
+  if (!form.elements.model.value.trim()) form.elements.model.value = parsed.model;
+  if (parsed.category && form.elements.category) form.elements.category.value = parsed.category;
+  showToast("URL details filled.");
+}
+
+function exportCsv() {
+  const headers = ["Brand", "Model", "Category", "Status", "Price", "Source URL", "Notes"];
+  const rows = state.watches.map((watch) => [
+    watch.brand,
+    watch.model,
+    watch.category,
+    watch.status,
+    watch.price,
+    watch.sourceUrl,
+    watch.notes
+  ]);
+
+  const csv = [headers, ...rows]
+    .map((row) => row.map(csvCell).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "watchlist-cabinet.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("CSV exported.");
+}
+
+function resetSamples() {
+  const confirmed = window.confirm("Replace current watches with the sample cabinet?");
+  if (!confirmed) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state = loadState();
+  showToast("Sample cabinet restored.");
+  render();
+}
+
+function showToast(message) {
+  state.toast = message;
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => {
+    state.toast = "";
+    render();
+  }, 2200);
+}
+
+function bindImageFallbacks() {
+  document.querySelectorAll("img.watch-image").forEach((image, index) => {
+    image.addEventListener("error", () => {
+      image.src = makeWatchImage(image.dataset.category || "Daily", index);
+    }, { once: true });
+  });
+}
+
+function inferWatchFromUrl(rawUrl) {
+  try {
+    const sourceUrl = normalizeUrl(rawUrl);
+    const url = new URL(sourceUrl);
+    const words = decodeURIComponent(url.pathname)
+      .replace(/\.[a-z0-9]+$/i, "")
+      .split(/[^a-z0-9]+/i)
+      .map((word) => word.trim())
+      .filter(Boolean)
+      .filter((word) => !["watch", "watches", "product", "products", "shop", "buy", "new", "men", "mens"].includes(word.toLowerCase()));
+
+    const brandMap = {
+      omega: "Omega",
+      rolex: "Rolex",
+      seiko: "Seiko",
+      tudor: "Tudor",
+      cartier: "Cartier",
+      nomos: "Nomos",
+      longines: "Longines",
+      hamilton: "Hamilton",
+      tissot: "Tissot",
+      sinn: "Sinn",
+      baltic: "Baltic",
+      citizen: "Citizen",
+      oris: "Oris",
+      tag: "TAG Heuer",
+      heuer: "TAG Heuer",
+      grand: "Grand Seiko"
+    };
+
+    const brandKey = words.find((word) => brandMap[word.toLowerCase()]);
+    const hostBrand = url.hostname.split(".").find((part) => brandMap[part.toLowerCase()]);
+    const brand = brandMap[brandKey?.toLowerCase()] || brandMap[hostBrand?.toLowerCase()] || titleCase(words[0] || url.hostname.split(".")[0]);
+    const modelWords = words.filter((word) => word.toLowerCase() !== brandKey?.toLowerCase()).slice(0, 5);
+    const model = titleCase(modelWords.join(" ") || "Watch candidate");
+    const category = inferCategory(words.join(" "));
+
+    return { sourceUrl, brand, model, category };
+  } catch {
+    return null;
+  }
+}
+
+function inferCategory(text) {
+  const value = text.toLowerCase();
+  if (value.includes("diver") || value.includes("submariner") || value.includes("aquascaphe")) return "Diver";
+  if (value.includes("chrono") || value.includes("speedmaster")) return "Chronograph";
+  if (value.includes("gmt") || value.includes("travel")) return "GMT";
+  if (value.includes("field") || value.includes("khaki")) return "Field";
+  if (value.includes("dress") || value.includes("tank") || value.includes("tangente")) return "Dress";
+  return "Daily";
+}
+
+function makeWatchImage(category, seed = 0) {
+  const theme = categoryThemes[category] || categoryThemes.Daily;
+  const rotation = (Number(seed) || String(seed).length) % 12;
+  const accentX = 58 + rotation;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" role="img" aria-label="${category} watch illustration">
+      <rect width="520" height="360" fill="${theme.bg}"/>
+      <path d="M0 304 C105 254 174 313 277 271 C380 229 433 252 520 211 L520 360 L0 360 Z" fill="#ffffff" opacity="0.34"/>
+      <g transform="translate(260 180)">
+        <rect x="-46" y="-160" width="92" height="112" rx="22" fill="${theme.strap}"/>
+        <rect x="-44" y="48" width="88" height="132" rx="22" fill="${theme.strap}"/>
+        <rect x="-77" y="-76" width="154" height="154" rx="77" fill="${theme.case}"/>
+        <rect x="-63" y="-62" width="126" height="126" rx="63" fill="${theme.dial}"/>
+        <circle cx="0" cy="0" r="5" fill="${theme.detail}"/>
+        <g stroke="${theme.detail}" stroke-width="5" stroke-linecap="round">
+          <line x1="0" y1="0" x2="${accentX - 58}" y2="-42"/>
+          <line x1="0" y1="0" x2="37" y2="${10 + rotation}"/>
+        </g>
+        <g stroke="${theme.detail}" stroke-width="3" stroke-linecap="round">
+          <line x1="0" y1="-50" x2="0" y2="-42"/>
+          <line x1="50" y1="0" x2="42" y2="0"/>
+          <line x1="0" y1="50" x2="0" y2="42"/>
+          <line x1="-50" y1="0" x2="-42" y2="0"/>
+        </g>
+        <circle cx="-25" cy="16" r="${category === "Chronograph" ? "13" : "0"}" fill="none" stroke="${theme.detail}" stroke-width="3"/>
+        <circle cx="25" cy="16" r="${category === "Chronograph" ? "13" : "0"}" fill="none" stroke="${theme.detail}" stroke-width="3"/>
+        <rect x="-14" y="-96" width="28" height="20" rx="7" fill="${theme.case}"/>
+        <rect x="-14" y="76" width="28" height="20" rx="7" fill="${theme.case}"/>
+      </g>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function icon(name, size = 18) {
+  const common = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"`;
+  const filled = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"`;
+  const icons = {
+    watch: `<svg ${common}><circle cx="12" cy="12" r="6"/><path d="M9 2h6"/><path d="M9 22h6"/><path d="M10 2l-1 4"/><path d="M14 2l1 4"/><path d="M10 22l-1-4"/><path d="M14 22l1-4"/><path d="M12 9v3l2 2"/></svg>`,
+    heart: `<svg ${common}><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6z"/></svg>`,
+    heartFilled: `<svg ${filled}><path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`,
+    tag: `<svg ${common}><path d="M20 10v9a1 1 0 0 1-1 1h-9L3 13V4h9l8 6z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>`,
+    calculator: `<svg ${common}><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/><path d="M8 15h.01"/><path d="M12 15h.01"/><path d="M16 15h.01"/></svg>`,
+    search: `<svg ${common}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>`,
+    plus: `<svg ${common}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
+    download: `<svg ${common}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>`,
+    refresh: `<svg ${common}><path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18 2v4h-4"/><path d="M6 22v-4h4"/></svg>`,
+    check: `<svg ${common}><path d="M20 6 9 17l-5-5"/></svg>`,
+    clock: `<svg ${common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+    link: `<svg ${common}><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg>`,
+    edit: `<svg ${common}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`,
+    trash: `<svg ${common}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>`,
+    x: `<svg ${common}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+    save: `<svg ${common}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>`,
+    wand: `<svg ${common}><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9H6"/><path d="M20 9h-2"/><path d="M17.8 6.2 19 5"/><path d="M11 9l-8 8 4 4 8-8"/><path d="m14 6 4 4"/></svg>`
+  };
+  return icons[name] || "";
+}
+
+function sum(values) {
+  return values.reduce((total, value) => total + value, 0);
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0
+  }).format(Number(value) || 0);
+}
+
+function normalizeUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+function getDomain(value) {
+  try {
+    return new URL(normalizeUrl(value)).hostname.replace(/^www\./, "");
+  } catch {
+    return "source link";
+  }
+}
+
+function cleanText(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function titleCase(value) {
+  return String(value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function createId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `watch-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, "&#096;");
+}
+
+document.addEventListener("click", handleClick);
+document.addEventListener("input", handleInput);
+document.addEventListener("change", handleChange);
+document.addEventListener("submit", handleSubmit);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.drawer.open) {
+    closeDrawer();
+  }
+});
+
+render();
