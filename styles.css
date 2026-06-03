@@ -310,15 +310,13 @@ svg {
 }
 
 .mobile-total-cell span,
-.mobile-total-cell small,
-.mobile-budget-row span {
+.mobile-total-cell small {
   color: var(--muted);
   font-size: 12px;
   font-weight: 620;
 }
 
-.mobile-total-cell span,
-.mobile-budget-row span {
+.mobile-total-cell span {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -347,57 +345,34 @@ svg {
   line-height: 1.35;
 }
 
-.mobile-budget-row {
-  min-height: 34px;
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.mobile-budget-row svg,
-.mobile-budget-row strong {
-  color: #9fd0ff;
-}
-
-.mobile-budget-row strong {
-  font-size: 15px;
-  font-weight: 720;
-}
-
 .controls-band {
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.tabs,
-.chip-row {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px;
+  justify-self: start;
+  display: block;
 }
 
 .tabs {
+  min-width: 0;
+  display: flex;
+  align-items: center;
   width: fit-content;
   padding: 3px;
+  gap: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(118, 118, 128, 0.18);
 }
 
-.tab,
-.chip {
-  height: 32px;
+.tab {
+  min-width: 66px;
+  height: 30px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.065);
   color: var(--ink-soft);
-  padding: 0 11px;
+  padding: 0 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -407,22 +382,11 @@ svg {
   white-space: nowrap;
 }
 
-.tab {
-  min-width: 78px;
-  background: transparent;
-}
-
-.tab.is-active,
-.chip.is-active {
+.tab.is-active {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.19);
   color: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-
-.chip.is-active {
-  color: #d9ecff;
-  border-color: rgba(10, 132, 255, 0.5);
 }
 
 .content-grid {
@@ -469,8 +433,9 @@ svg {
 .watch-grid {
   padding: 15px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
+  align-items: stretch;
 }
 
 .watch-row {
@@ -484,7 +449,7 @@ svg {
     rgba(18, 19, 22, 0.86);
   box-shadow: var(--card-shadow);
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   align-content: start;
   overflow: hidden;
@@ -501,19 +466,26 @@ svg {
 .shelf-visual {
   position: relative;
   min-width: 0;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 5;
 }
 
 .row-thumb {
   position: relative;
   width: 100%;
   height: 100%;
+  padding: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: var(--radius);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 40%),
     #15171c;
+  cursor: zoom-in;
+}
+
+.row-thumb:focus-visible {
+  outline: 3px solid rgba(10, 132, 255, 0.46);
+  outline-offset: 3px;
 }
 
 .row-thumb::before {
@@ -522,22 +494,25 @@ svg {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 35%, rgba(0, 0, 0, 0.2));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 34%, rgba(0, 0, 0, 0.08));
 }
 
 .row-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: #f2f2f3;
   display: block;
 }
 
 .watch-copy {
   min-width: 0;
   height: 100%;
-  display: grid;
+  min-height: 246px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  align-content: start;
   padding: 0 2px 2px;
 }
 
@@ -545,6 +520,10 @@ svg {
   min-width: 0;
   display: grid;
   gap: 8px;
+}
+
+.watch-topline > div:first-child {
+  min-height: 64px;
 }
 
 .watch-kicker {
@@ -562,14 +541,17 @@ svg {
   line-height: 1.08;
   font-weight: 760;
   display: -webkit-box;
+  min-height: 43px;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
 .row-meta {
+  min-height: 64px;
   display: flex;
-  align-items: center;
+  align-content: flex-start;
+  align-items: flex-start;
   gap: 8px;
   min-width: 0;
   flex-wrap: wrap;
@@ -669,7 +651,7 @@ svg {
   justify-content: flex-end;
   gap: 8px;
   align-self: end;
-  margin-top: 0;
+  margin-top: auto;
 }
 
 .watch-actions .button {
@@ -713,6 +695,78 @@ svg {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.image-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  padding: 22px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(24px) saturate(1.18);
+  display: grid;
+  place-items: center;
+}
+
+.image-preview-dialog {
+  width: min(100%, 920px);
+  max-height: calc(100svh - 44px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(18, 18, 20, 0.94);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.image-preview-header {
+  padding: 14px 14px 12px 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.image-preview-header p,
+.image-preview-header h2 {
+  margin: 0;
+}
+
+.image-preview-header p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.image-preview-header h2 {
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 21px;
+  line-height: 1.12;
+  font-weight: 760;
+}
+
+.image-preview-frame {
+  min-height: 0;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.16);
+  display: grid;
+  place-items: center;
+}
+
+.image-preview-frame img {
+  width: 100%;
+  max-height: min(78svh, 780px);
+  object-fit: contain;
+  background: #f2f2f3;
+  border-radius: var(--radius);
+  display: block;
 }
 
 .drawer-backdrop {
@@ -1063,6 +1117,8 @@ svg {
   }
 
   .controls-band {
+    width: fit-content;
+    max-width: 100%;
     padding: 0;
     border: 0;
     background: transparent;
@@ -1071,34 +1127,15 @@ svg {
   }
 
   .tabs {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: fit-content;
+    max-width: 100%;
+    display: flex;
     gap: 4px;
   }
 
   .tab {
-    height: 40px;
-    min-width: 0;
-  }
-
-  .chip-row {
-    margin: 0 -16px;
-    padding: 0 16px 2px;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    scrollbar-width: none;
-  }
-
-  .chip-row::-webkit-scrollbar {
-    display: none;
-  }
-
-  .chip {
-    flex: 0 0 auto;
-    height: 38px;
-    padding: 0 14px;
-    background: rgba(118, 118, 128, 0.16);
+    height: 34px;
+    min-width: 72px;
   }
 
   .content-grid {
@@ -1137,7 +1174,21 @@ svg {
     gap: 8px;
   }
 
+  .watch-copy {
+    min-height: 166px;
+    gap: 6px;
+  }
+
+  .watch-topline {
+    gap: 6px;
+  }
+
+  .watch-topline > div:first-child {
+    min-height: 50px;
+  }
+
   .watch-name {
+    min-height: 35px;
     font-size: 16px;
     line-height: 1.1;
   }
@@ -1149,6 +1200,11 @@ svg {
 
   .watch-kicker {
     font-size: 10px;
+  }
+
+  .row-meta {
+    min-height: 54px;
+    gap: 6px;
   }
 
   .source-link {
@@ -1189,6 +1245,31 @@ svg {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .image-preview-backdrop {
+    padding: 10px;
+  }
+
+  .image-preview-dialog {
+    width: 100%;
+    max-height: calc(100svh - 20px);
+  }
+
+  .image-preview-header {
+    padding: 12px;
+  }
+
+  .image-preview-header h2 {
+    font-size: 18px;
+  }
+
+  .image-preview-frame {
+    padding: 8px;
+  }
+
+  .image-preview-frame img {
+    max-height: 74svh;
   }
 
   .drawer-backdrop {

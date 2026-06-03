@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Archive,
   BadgeCheck,
   Banknote,
   Check,
@@ -24,7 +23,6 @@ import {
   Sun,
   Timer,
   Trash2,
-  WalletCards,
   Watch as WatchIcon,
   Waves,
   X
@@ -44,8 +42,8 @@ type DrawerState = { open: false; editingId: null } | { open: true; editingId: s
 function App() {
   const [watches, setWatches] = useState<Watch[]>([]);
   const [filters, setFilters] = useState<CabinetFilters>(emptyFilters);
-  const [budget, setBudget] = useState(22000);
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, editingId: null });
+  const [previewWatch, setPreviewWatch] = useState<Watch | null>(null);
   const [toast, setToast] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -58,7 +56,6 @@ function App() {
       const snapshot = loadLocalSnapshot();
       setWatches(snapshot.watches);
       setFilters(snapshot.filters);
-      setBudget(snapshot.budget);
       setIsLoaded(true);
       return;
     }
@@ -97,8 +94,8 @@ function App() {
 
   useEffect(() => {
     if (!isLoaded || isSupabaseConfigured) return;
-    saveLocalSnapshot({ watches, filters, budget });
-  }, [budget, filters, isLoaded, watches]);
+    saveLocalSnapshot({ watches, filters });
+  }, [filters, isLoaded, watches]);
 
   useEffect(() => {
     if (!isLoaded || !cloudUser) return;
@@ -111,7 +108,6 @@ function App() {
         if (!active) return;
         setWatches(snapshot.watches);
         setFilters(snapshot.filters);
-        setBudget(snapshot.budget);
       })
       .catch((error: Error) => {
         if (!active) return;
@@ -123,7 +119,7 @@ function App() {
     };
   }, [cloudUser, isLoaded]);
 
-  const summary = useMemo(() => getSummary(watches, budget), [budget, watches]);
+  const summary = useMemo(() => getSummary(watches), [watches]);
   const filteredWatches = useMemo(() => getFilteredWatches(watches, filters), [filters, watches]);
 
   function showToast(message: string) {
@@ -256,6 +252,7 @@ function App() {
             tab={filters.tab}
             onEdit={openDrawer}
             onDelete={deleteWatch}
+            onPreview={setPreviewWatch}
           />
         </div>
       </main>
@@ -267,6 +264,7 @@ function App() {
           onSubmit={handleWatchFormSubmit}
         />
       ) : null}
+      {previewWatch ? <ImagePreview watch={previewWatch} onClose={() => setPreviewWatch(null)} /> : null}
       {toast ? (
         <div className="toast" role="status">
           {toast}
@@ -405,11 +403,6 @@ function Topbar({
 }
 
 function MobileSummary({ summary }: { summary: CabinetSummary }) {
-  const budgetLabel =
-    summary.budgetDelta >= 0
-      ? `${formatCurrency(summary.budgetDelta)} left`
-      : `${formatCurrency(Math.abs(summary.budgetDelta))} to go`;
-
   return (
     <section className="mobile-summary-card" aria-label="Cost summary">
       <div className="mobile-summary-grid">
@@ -430,13 +423,6 @@ function MobileSummary({ summary }: { summary: CabinetSummary }) {
           <small>{formatWatchCount(summary.ownedCount)}</small>
         </div>
       </div>
-      <div className="mobile-budget-row">
-        <span>
-          <WalletCards size={17} />
-          Gap
-        </span>
-        <strong>{budgetLabel}</strong>
-      </div>
     </section>
   );
 }
@@ -444,8 +430,8 @@ function MobileSummary({ summary }: { summary: CabinetSummary }) {
 function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (filters: Partial<CabinetFilters>) => void }) {
   const tabOptions = [
     { id: "all", label: "All", icon: Grid3X3 },
-    { id: "owned", label: "Owned", icon: BadgeCheck },
-    { id: "wishlist", label: "Wishlist", icon: Heart }
+    { id: "wishlist", label: "Wishlist", icon: Heart },
+    { id: "owned", label: "Owned", icon: BadgeCheck }
   ] as const;
 
   return (
@@ -456,31 +442,10 @@ function Controls({ filters, onChange }: { filters: CabinetFilters; onChange: (f
             className={`tab ${filters.tab === tab.id ? "is-active" : ""}`}
             type="button"
             key={tab.id}
-            onClick={() => onChange({ tab: tab.id })}
+            onClick={() => onChange({ tab: tab.id, category: "all" })}
           >
             <tab.icon size={15} />
             {tab.label}
-          </button>
-        ))}
-      </div>
-      <div className="chip-row" aria-label="Category filters">
-        <button
-          className={`chip ${filters.category === "all" ? "is-active" : ""}`}
-          type="button"
-          onClick={() => onChange({ category: "all" })}
-        >
-          <Archive size={15} />
-          All
-        </button>
-        {categories.map((category) => (
-          <button
-            className={`chip ${filters.category === category.name ? "is-active" : ""}`}
-            type="button"
-            key={category.name}
-            onClick={() => onChange({ category: category.name })}
-          >
-            <CategoryGlyph category={category.name} size={15} />
-            {category.name}
           </button>
         ))}
       </div>
@@ -492,12 +457,14 @@ function Board({
   watches,
   tab,
   onEdit,
-  onDelete
+  onDelete,
+  onPreview
 }: {
   watches: Watch[];
   tab: CabinetFilters["tab"];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onPreview: (watch: Watch) => void;
 }) {
   const title = tab === "wishlist" ? "Wishlist" : tab === "owned" ? "Owned" : "Collection";
 
@@ -519,6 +486,7 @@ function Board({
               key={watch.id}
               onEdit={onEdit}
               onDelete={onDelete}
+              onPreview={onPreview}
             />
           ))}
         </div>
@@ -533,12 +501,14 @@ function WatchRow({
   watch,
   index,
   onEdit,
-  onDelete
+  onDelete,
+  onPreview
 }: {
   watch: Watch;
   index: number;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onPreview: (watch: Watch) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
   const sourceDomain = getDomain(watch.sourceUrl);
@@ -546,7 +516,12 @@ function WatchRow({
   return (
     <article className={`watch-row is-${watch.status}`}>
       <div className="shelf-visual">
-        <div className="row-thumb">
+        <button
+          className="row-thumb"
+          type="button"
+          onClick={() => onPreview(watch)}
+          aria-label={`View larger image of ${watch.brand} ${watch.model}`}
+        >
           <img
             className="watch-image"
             src={watch.imageUrl || makeWatchImage(watch.category, watch.id)}
@@ -555,7 +530,7 @@ function WatchRow({
               event.currentTarget.src = makeWatchImage(watch.category, index);
             }}
           />
-        </div>
+        </button>
       </div>
       <div className="watch-copy">
         <div className="watch-topline">
@@ -616,6 +591,46 @@ function EmptyState() {
   );
 }
 
+function ImagePreview({ watch, onClose }: { watch: Watch; onClose: () => void }) {
+  const imageUrl = watch.imageUrl || makeWatchImage(watch.category, watch.id);
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      className="image-preview-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${watch.brand} ${watch.model} image preview`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="image-preview-dialog">
+        <div className="image-preview-header">
+          <div>
+            <p>{watch.brand}</p>
+            <h2>{watch.model}</h2>
+          </div>
+          <button className="button button-icon" type="button" onClick={onClose} aria-label="Close image preview">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="image-preview-frame">
+          <img src={imageUrl} alt={`${watch.brand} ${watch.model}`} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WatchDrawer({
   editing,
   filters,
@@ -630,7 +645,7 @@ function WatchDrawer({
   const watch = editing || {
     brand: "",
     model: "",
-    category: filters.category === "all" ? "Dress" : filters.category,
+    category: "Dress",
     status: filters.tab === "owned" ? "owned" : "wishlist",
     price: "",
     sourceUrl: "",
@@ -770,7 +785,7 @@ function CategoryGlyph({ category, size = 14 }: { category: WatchCategory; size?
   return <Icon size={size} aria-hidden="true" />;
 }
 
-function getSummary(watches: Watch[], budget: number): CabinetSummary {
+function getSummary(watches: Watch[]): CabinetSummary {
   const owned = watches.filter((watch) => watch.status === "owned");
   const wishlist = watches.filter((watch) => watch.status === "wishlist");
   const wishlistTotal = sum(wishlist.map((watch) => Number(watch.price) || 0));
@@ -780,8 +795,7 @@ function getSummary(watches: Watch[], budget: number): CabinetSummary {
     ownedCount: owned.length,
     wishlistCount: wishlist.length,
     wishlistTotal,
-    ownedValue,
-    budgetDelta: budget - wishlistTotal
+    ownedValue
   };
 }
 
@@ -790,7 +804,6 @@ function getFilteredWatches(watches: Watch[], filters: CabinetFilters) {
 
   return [...watches]
     .filter((watch) => filters.tab === "all" || watch.status === filters.tab)
-    .filter((watch) => filters.category === "all" || watch.category === filters.category)
     .filter((watch) => {
       if (!query) return true;
       const haystack = [watch.brand, watch.model, watch.category, watch.status, watch.notes, getDomain(watch.sourceUrl)].join(" ").toLowerCase();

@@ -7,8 +7,7 @@ const LEGACY_STORAGE_KEYS = ["watchlist-cabinet-state-v3", "watchlist-cabinet-st
 
 const fallbackSnapshot: CabinetSnapshot = {
   watches: sampleWatches,
-  filters: { tab: "all", category: "all", query: "" },
-  budget: 22000
+  filters: { tab: "all", category: "all", query: "" }
 };
 
 export function loadLocalSnapshot(): CabinetSnapshot {
@@ -26,8 +25,7 @@ export function loadLocalSnapshot(): CabinetSnapshot {
         tab: saved.filters?.tab || "all",
         category: saved.filters?.category || "all",
         query: saved.filters?.query || ""
-      },
-      budget: Number(saved.budget) || 22000
+      }
     };
   } catch (error) {
     console.warn("Could not load Watchlist Cabinet state", error);

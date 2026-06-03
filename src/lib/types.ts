@@ -35,7 +35,6 @@ export interface CabinetFilters {
 export interface CabinetSnapshot {
   watches: Watch[];
   filters: CabinetFilters;
-  budget: number;
 }
 
 export interface CabinetSummary {
@@ -43,5 +42,4 @@ export interface CabinetSummary {
   wishlistCount: number;
   wishlistTotal: number;
   ownedValue: number;
-  budgetDelta: number;
 }

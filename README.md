@@ -30,10 +30,10 @@ Desktop layout for wider screens.
 ## Highlights
 
 - Save watches from any website with a source URL.
-- Display the collection with a large featured watch and compact watch cards.
+- Display the collection as a clean shelf grid with large watch images.
 - Track owned watches and wishlist watches in one view.
-- Filter by status and category: Dress, Diver, Field, Chronograph, GMT, and Daily.
-- Calculate wishlist total, owned value, budget gap, and missing category coverage in AED.
+- Filter by All, Wishlist, and Owned.
+- Calculate wishlist total and owned value in AED.
 - Works locally with `localStorage` when Supabase is not configured.
 - Syncs across devices with Google-only Supabase auth when env vars are present.
 - Deploys cleanly to Vercel and includes a PWA manifest/icons for phone install.

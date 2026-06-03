@@ -18,34 +18,20 @@ interface WatchRow {
   updated_at: string;
 }
 
-interface SettingsRow {
-  user_id: string;
-  budget: number | string;
-}
-
 export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
   if (!supabase) throw new Error("Supabase is not configured.");
 
-  const [watchesResult, settingsResult] = await Promise.all([
-    supabase
-      .from("watches")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("watch_settings")
-      .select("user_id,budget")
-      .eq("user_id", user.id)
-      .maybeSingle()
-  ]);
+  const watchesResult = await supabase
+    .from("watches")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
 
   if (watchesResult.error) throw watchesResult.error;
-  if (settingsResult.error) throw settingsResult.error;
 
   return {
     watches: ((watchesResult.data || []) as WatchRow[]).map(fromWatchRow),
-    filters: { tab: "all", category: "all", query: "" },
-    budget: Number((settingsResult.data as SettingsRow | null)?.budget) || 6000
+    filters: { tab: "all", category: "all", query: "" }
   };
 }
 
