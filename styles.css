@@ -89,6 +89,14 @@ svg {
   gap: 14px;
 }
 
+.topbar-heading {
+  min-width: 0;
+}
+
+.topbar-mobile-actions {
+  display: none;
+}
+
 .brand-mark {
   width: 42px;
   height: 42px;
@@ -618,9 +626,8 @@ svg {
 
 .watch-copy {
   min-width: 0;
-  height: 168px;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 168px;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1104,26 +1111,37 @@ svg {
 
   .workspace {
     width: 100%;
-    padding: 0 16px 28px;
-    gap: 18px;
+    padding: calc(18px + env(safe-area-inset-top)) 16px 28px;
+    gap: 16px;
   }
 
   .mobile-appbar {
-    position: static;
-    min-height: 66px;
-    margin: 0 -16px 2px;
-    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(5, 5, 6, 0.78);
+    display: none;
+  }
+
+  .topbar {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 12px;
+    padding-top: 0;
+  }
+
+  .topbar-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
   }
 
-  .mobile-appbar .brand-mark {
-    width: 38px;
-    height: 38px;
+  .topbar-mobile-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
   }
 
   .mobile-add-button {
@@ -1137,28 +1155,13 @@ svg {
     height: 40px;
   }
 
-  .topbar {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    justify-content: stretch;
-    gap: 14px;
-    padding-top: 2px;
-  }
-
-  .topbar > div:first-child,
-  .topbar .button-primary {
-    display: none;
-  }
-
   .topbar-controls {
     width: 100%;
     min-width: 0;
     display: block;
   }
 
-  .topbar-controls > .button {
+  .topbar-desktop-action {
     display: none;
   }
 
@@ -1191,8 +1194,9 @@ svg {
   }
 
   .tabs {
-    width: fit-content;
+    width: auto;
     max-width: 100%;
+    flex: 1 1 auto;
     display: flex;
     gap: 3px;
   }
@@ -1200,9 +1204,9 @@ svg {
   .tab {
     min-width: 0;
     height: 30px;
-    padding: 0 8px;
-    gap: 5px;
-    font-size: 11px;
+    padding: 0 7px;
+    gap: 4px;
+    font-size: 10.5px;
   }
 
   .tab svg {
@@ -1212,20 +1216,24 @@ svg {
 
   .collection-controls {
     width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
     justify-content: flex-start;
-    gap: 8px;
+    align-items: center;
+    gap: 7px;
     margin-top: 2px;
   }
 
   .sort-control {
+    flex: 0 0 116px;
     height: 38px;
   }
 
   .sort-control select {
-    width: 128px;
-    padding-left: 29px;
-    padding-right: 22px;
-    font-size: 11px;
+    width: 116px;
+    padding-left: 27px;
+    padding-right: 20px;
+    font-size: 10.5px;
   }
 
   .content-grid {
@@ -1286,8 +1294,9 @@ svg {
   }
 
   .watch-copy {
-    height: 158px;
-    min-height: 0;
+    height: auto;
+    min-height: 158px;
+    overflow: visible;
     gap: 11px;
     padding-bottom: 0;
   }
@@ -1389,33 +1398,25 @@ svg {
   }
 
   .drawer-backdrop {
-    align-items: flex-end;
+    align-items: stretch;
     justify-content: center;
   }
 
   .drawer {
     width: 100vw;
-    height: min(92svh, 760px);
+    height: 100svh;
     border-left: 0;
-    border-radius: 14px 14px 0 0;
+    border-radius: 0;
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
   .drawer-header {
     position: relative;
-    padding: 24px 16px 14px;
+    padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
   }
 
   .drawer-header::before {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 8px;
-    width: 42px;
-    height: 4px;
-    border-radius: 999px;
-    background: rgba(235, 235, 245, 0.28);
-    transform: translateX(-50%);
+    display: none;
   }
 
   .drawer-title {
@@ -1460,8 +1461,19 @@ svg {
   }
 
   .collection-controls {
-    display: grid;
-    grid-template-columns: 1fr;
-    justify-items: start;
+    gap: 6px;
+  }
+
+  .tab {
+    padding: 0 6px;
+    font-size: 10px;
+  }
+
+  .sort-control {
+    flex-basis: 112px;
+  }
+
+  .sort-control select {
+    width: 112px;
   }
 }

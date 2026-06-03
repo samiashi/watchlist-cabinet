@@ -267,7 +267,6 @@ function CabinetApp() {
   return (
     <div className="app-shell">
       <main className="workspace">
-        <MobileHeader canShare={Boolean(cloudUser)} isSharing={isSharing} onAdd={() => openDrawer()} onShare={shareWishlist} />
         <Topbar
           filters={filters}
           canShare={Boolean(cloudUser)}
@@ -499,40 +498,6 @@ function GoogleMark() {
   );
 }
 
-function MobileHeader({
-  canShare,
-  isSharing,
-  onAdd,
-  onShare
-}: {
-  canShare: boolean;
-  isSharing: boolean;
-  onAdd: () => void;
-  onShare: () => void;
-}) {
-  return (
-    <header className="mobile-appbar" aria-label="Mobile app header">
-      <div className="mobile-brand">
-        <div className="brand-mark" aria-hidden="true">
-          <WatchIcon size={19} />
-        </div>
-        <p className="mobile-brand-title">Cabinet</p>
-      </div>
-      <div className="mobile-header-actions">
-        {canShare ? (
-          <button className="button button-icon mobile-share-button" type="button" onClick={onShare} disabled={isSharing} aria-label="Share wishlist">
-            {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
-          </button>
-        ) : null}
-        <button className="button button-primary mobile-add-button" type="button" onClick={onAdd}>
-          <Plus size={17} />
-          <span>Add</span>
-        </button>
-      </div>
-    </header>
-  );
-}
-
 function Topbar({
   filters,
   canShare,
@@ -550,7 +515,20 @@ function Topbar({
 }) {
   return (
     <header className="topbar">
-      <h1 className="page-title">Cabinet</h1>
+      <div className="topbar-heading">
+        <h1 className="page-title">Cabinet</h1>
+        <div className="topbar-mobile-actions">
+          {canShare ? (
+            <button className="button button-icon mobile-share-button" type="button" onClick={onShare} disabled={isSharing} aria-label="Share wishlist">
+              {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
+            </button>
+          ) : null}
+          <button className="button button-primary mobile-add-button" type="button" onClick={onAdd}>
+            <Plus size={17} />
+            <span>Add</span>
+          </button>
+        </div>
+      </div>
       <div className="topbar-controls">
         <label className="search-box">
           <span className="sr-only">Search watches</span>
@@ -565,12 +543,12 @@ function Topbar({
           />
         </label>
         {canShare ? (
-          <button className="button" type="button" onClick={onShare} disabled={isSharing}>
+          <button className="button topbar-desktop-action" type="button" onClick={onShare} disabled={isSharing}>
             {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
             <span>Share</span>
           </button>
         ) : null}
-        <button className="button button-primary" type="button" onClick={onAdd}>
+        <button className="button button-primary topbar-desktop-action" type="button" onClick={onAdd}>
           <Plus size={18} />
           <span>Add watch</span>
         </button>
@@ -851,6 +829,14 @@ function WatchDrawer({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   const watch = editing || {
     brand: "",
     model: "",
