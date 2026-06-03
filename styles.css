@@ -19,7 +19,6 @@
   --card-shadow: 0 16px 42px rgba(0, 0, 0, 0.38);
   --radius: 8px;
   --max-width: 1180px;
-  --calc-width: 326px;
   color: var(--ink);
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
@@ -171,8 +170,7 @@ svg {
 .search-box input,
 .field input,
 .field select,
-.field textarea,
-.budget-control input {
+.field textarea {
   width: 100%;
   border: 1px solid var(--line);
   color: var(--ink);
@@ -196,8 +194,7 @@ svg {
 .search-box input:focus,
 .field input:focus,
 .field select:focus,
-.field textarea:focus,
-.budget-control input:focus {
+.field textarea:focus {
   border-color: rgba(10, 132, 255, 0.78);
   background: rgba(255, 255, 255, 0.1);
   box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.14);
@@ -275,7 +272,6 @@ svg {
 .mobile-summary-card,
 .controls-band,
 .board,
-.calculator,
 .auth-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -315,18 +311,14 @@ svg {
 
 .mobile-total-cell span,
 .mobile-total-cell small,
-.mobile-budget-row span,
-.total-label,
-.budget-control span {
+.mobile-budget-row span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 620;
 }
 
 .mobile-total-cell span,
-.mobile-budget-row span,
-.total-label,
-.budget-control span {
+.mobile-budget-row span {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -435,22 +427,17 @@ svg {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--calc-width);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
 
-.board,
-.calculator {
-  overflow: hidden;
-}
-
 .board {
+  overflow: hidden;
   min-width: 0;
 }
 
-.board-header,
-.calculator-header {
+.board-header {
   padding: 15px;
   border-bottom: 1px solid var(--line);
   display: flex;
@@ -459,8 +446,7 @@ svg {
   gap: 14px;
 }
 
-.board-header > svg,
-.calculator-header > svg {
+.board-header > svg {
   color: var(--muted);
 }
 
@@ -757,108 +743,6 @@ svg {
   gap: 6px;
 }
 
-.calculator {
-  position: sticky;
-  top: 24px;
-}
-
-.calculator-body {
-  padding: 16px;
-  display: grid;
-  gap: 14px;
-}
-
-.total-panel {
-  padding: 2px 0 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.total-label {
-  color: var(--muted);
-}
-
-.total-value {
-  margin-top: 8px;
-  color: var(--ink);
-  font-size: 34px;
-  line-height: 1;
-  font-weight: 760;
-}
-
-.total-caption {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.budget-control {
-  display: grid;
-  grid-template-columns: 1fr 132px;
-  gap: 10px;
-  align-items: end;
-}
-
-.budget-control input {
-  height: 40px;
-  border-radius: var(--radius);
-  padding: 0 10px;
-}
-
-.delta {
-  padding: 12px;
-  border: 1px solid rgba(10, 132, 255, 0.18);
-  border-radius: var(--radius);
-  background: rgba(10, 132, 255, 0.09);
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.38;
-}
-
-.delta strong {
-  color: var(--ink);
-}
-
-.needs-list {
-  display: grid;
-  gap: 8px;
-}
-
-.need-item {
-  padding: 11px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  display: grid;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.055);
-}
-
-.need-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 680;
-}
-
-.need-title span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.need-title svg {
-  color: var(--accent-soft);
-}
-
-.need-text {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .empty-state {
   min-height: 330px;
   padding: 42px 18px;
@@ -1084,16 +968,6 @@ svg {
   }
 }
 
-@media (max-width: 1120px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .calculator {
-    position: static;
-  }
-}
-
 @media (max-width: 880px) {
   .watch-row.is-featured {
     grid-template-columns: 1fr;
@@ -1316,17 +1190,7 @@ svg {
     height: 40px;
   }
 
-  .calculator {
-    margin-top: 18px;
-  }
-
-  .calculator-header {
-    align-items: flex-start;
-    flex-direction: row;
-  }
-
-  .form-grid,
-  .budget-control {
+  .form-grid {
     grid-template-columns: 1fr;
   }
 

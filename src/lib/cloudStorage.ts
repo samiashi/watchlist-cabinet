@@ -66,16 +66,6 @@ export async function deleteCloudWatch(id: string) {
   if (error) throw error;
 }
 
-export async function saveCloudBudget(user: User, budget: number) {
-  if (!supabase) throw new Error("Supabase is not configured.");
-
-  const { error } = await supabase
-    .from("watch_settings")
-    .upsert({ user_id: user.id, budget }, { onConflict: "user_id" });
-
-  if (error) throw error;
-}
-
 function fromWatchRow(row: WatchRow, index: number): Watch {
   return {
     id: row.id,

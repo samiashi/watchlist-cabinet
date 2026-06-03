@@ -4,10 +4,8 @@ import {
   Archive,
   BadgeCheck,
   Banknote,
-  Calculator,
   Check,
   Clock,
-  Cloud,
   FileText,
   Gem,
   Grid3X3,
@@ -31,11 +29,11 @@ import {
   Waves,
   X
 } from "lucide-react";
-import { deleteCloudWatch, loadCloudSnapshot, saveCloudBudget, upsertCloudWatch } from "./lib/cloudStorage";
+import { deleteCloudWatch, loadCloudSnapshot, upsertCloudWatch } from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { categories, type CabinetFilters, type CabinetSummary, type CategorySummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
+import { categories, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
 import { makeWatchImage } from "./lib/watchImages";
 
 const emptyFilters: CabinetFilters = { tab: "all", category: "all", query: "" };
@@ -155,13 +153,6 @@ function App() {
 
   function updateFilters(nextFilters: Partial<CabinetFilters>) {
     setFilters((current) => ({ ...current, ...nextFilters }));
-  }
-
-  function updateBudget(nextBudget: number) {
-    setBudget(nextBudget);
-    if (cloudUser) {
-      saveCloudBudget(cloudUser, nextBudget).catch((error: Error) => showToast(`Budget was not saved: ${error.message}`));
-    }
   }
 
   function openDrawer(editingId: string | null = null) {
@@ -284,7 +275,6 @@ function App() {
             onDelete={deleteWatch}
             onToggleStatus={toggleStatus}
           />
-          <CalculatorPanel summary={summary} budget={budget} onBudgetChange={updateBudget} isCloud={Boolean(cloudUser)} />
         </div>
       </main>
       {drawer.open ? (
@@ -671,101 +661,6 @@ function EmptyState() {
   );
 }
 
-function CalculatorPanel({
-  summary,
-  budget,
-  onBudgetChange,
-  isCloud
-}: {
-  summary: CabinetSummary;
-  budget: number;
-  onBudgetChange: (budget: number) => void;
-  isCloud: boolean;
-}) {
-  const needed = summary.categoryStats
-    .filter((item) => item.owned < item.target)
-    .sort((a, b) => b.target - b.owned - (a.target - a.owned) || b.wishlistCount - a.wishlistCount);
-
-  return (
-    <aside className="calculator" aria-label="Wishlist price calculator">
-      <div className="calculator-header">
-        <div>
-          <h2 className="section-title">Costs</h2>
-          <p className="section-meta">AED budget and gaps</p>
-        </div>
-        {isCloud ? <Cloud size={22} /> : <Calculator size={22} />}
-      </div>
-      <div className="calculator-body">
-        <div className="total-panel">
-          <div className="total-label">
-            <ShoppingBag size={14} />
-            Wishlist total
-          </div>
-          <div className="total-value">{formatCurrency(summary.wishlistTotal)}</div>
-          <p className="total-caption">{formatWatchCount(summary.wishlistCount)} on the wishlist</p>
-        </div>
-        <label className="budget-control">
-          <span>
-            <WalletCards size={14} />
-            Budget
-          </span>
-          <input
-            id="budgetInput"
-            type="number"
-            min="0"
-            step="100"
-            value={budget}
-            inputMode="decimal"
-            onChange={(event) => onBudgetChange(Number(event.target.value) || 0)}
-          />
-        </label>
-        <div className="delta">
-          {summary.budgetDelta >= 0 ? (
-            <>
-              <strong>{formatCurrency(summary.budgetDelta)}</strong> left if you bought the wishlist.
-            </>
-          ) : (
-            <>
-              <strong>{formatCurrency(Math.abs(summary.budgetDelta))}</strong> above the current budget.
-            </>
-          )}
-        </div>
-        <div>
-          <h3 className="section-title">Gaps</h3>
-          <div className="needs-list">
-            {needed.length ? (
-              needed.map((item) => (
-                <div className="need-item" key={item.name}>
-                  <div className="need-title">
-                    <span>
-                      <CategoryGlyph category={item.name} size={14} />
-                      {item.name}
-                    </span>
-                    <span>
-                      {item.owned}/{item.target}
-                    </span>
-                  </div>
-                  <div className="need-text">{renderNeedText(item)}</div>
-                </div>
-              ))
-            ) : (
-              <div className="need-item">
-                <div className="need-title">
-                  <span>Balanced</span>
-                  <span>
-                    {categories.length}/{categories.length}
-                  </span>
-                </div>
-                <div className="need-text">Every target category has at least one owned watch.</div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 function WatchDrawer({
   editing,
   filters,
@@ -914,28 +809,12 @@ function getSummary(watches: Watch[], budget: number): CabinetSummary {
   const wishlistTotal = sum(wishlist.map((watch) => Number(watch.price) || 0));
   const ownedValue = sum(owned.map((watch) => Number(watch.price) || 0));
 
-  const categoryStats = categories.map((category) => {
-    const categoryOwned = owned.filter((watch) => watch.category === category.name);
-    const categoryWishlist = wishlist.filter((watch) => watch.category === category.name);
-    const wishlistPrices = categoryWishlist.map((watch) => Number(watch.price) || 0).filter(Boolean);
-
-    return {
-      name: category.name,
-      target: category.target,
-      owned: categoryOwned.length,
-      wishlistCount: categoryWishlist.length,
-      wishlistTotal: sum(categoryWishlist.map((watch) => Number(watch.price) || 0)),
-      lowestWishlist: wishlistPrices.length ? Math.min(...wishlistPrices) : 0
-    };
-  });
-
   return {
     ownedCount: owned.length,
     wishlistCount: wishlist.length,
     wishlistTotal,
     ownedValue,
-    budgetDelta: budget - wishlistTotal,
-    categoryStats
+    budgetDelta: budget - wishlistTotal
   };
 }
 
@@ -951,14 +830,6 @@ function getFilteredWatches(watches: Watch[], filters: CabinetFilters) {
       return haystack.includes(query);
     })
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-}
-
-function renderNeedText(item: CategorySummary) {
-  if (item.wishlistCount) {
-    return `${formatWatchCount(item.wishlistCount)} on the wishlist - lowest ${formatCurrency(item.lowestWishlist || 0)}`;
-  }
-
-  return `No wishlist candidate yet - add a ${item.name.toLowerCase()} watch.`;
 }
 
 export default App;

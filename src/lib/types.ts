@@ -38,20 +38,10 @@ export interface CabinetSnapshot {
   budget: number;
 }
 
-export interface CategorySummary {
-  name: WatchCategory;
-  target: number;
-  owned: number;
-  wishlistCount: number;
-  wishlistTotal: number;
-  lowestWishlist: number;
-}
-
 export interface CabinetSummary {
   ownedCount: number;
   wishlistCount: number;
   wishlistTotal: number;
   ownedValue: number;
   budgetDelta: number;
-  categoryStats: CategorySummary[];
 }
