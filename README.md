@@ -35,7 +35,7 @@ Desktop layout for wider screens.
 - Filter by status and category: Dress, Diver, Field, Chronograph, GMT, and Daily.
 - Calculate wishlist total, owned value, budget gap, and missing category coverage in AED.
 - Works locally with `localStorage` when Supabase is not configured.
-- Syncs across devices with private username/password auth when Supabase env vars are present.
+- Syncs across devices with Google-only Supabase auth when env vars are present.
 - Deploys cleanly to Vercel and includes a PWA manifest/icons for phone install.
 
 ## Tech Stack
@@ -89,24 +89,15 @@ Add your Supabase values:
 ```bash
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-VITE_AUTH_USERNAME=sami
 ```
 
-Create one Supabase Auth user with a password. The app signs in with username/password, while Supabase still expects an email internally.
+Enable the Google provider in Supabase Auth and add the Google OAuth client ID and secret there. In Google Cloud, include the Supabase callback URL for the project:
 
-To keep an existing Supabase email user and its saved watches, add:
-
-```bash
-VITE_AUTH_EMAIL=you@example.com
+```text
+https://your-project-ref.supabase.co/auth/v1/callback
 ```
 
-Or create a no-real-email user in Supabase such as `sami@cabinet.local` and leave `VITE_AUTH_EMAIL` empty. You can change the generated domain with:
-
-```bash
-VITE_AUTH_EMAIL_DOMAIN=cabinet.local
-```
-
-For password-only use, make sure the Supabase email provider allows password sign-in and that the one auth user is confirmed.
+Also add your local and deployed app URLs to the allowed redirect URLs in Supabase Auth settings.
 
 Restart the dev server:
 
@@ -114,7 +105,7 @@ Restart the dev server:
 npm run dev
 ```
 
-When Supabase is configured, the app shows a username/password sign-in screen and stores watches with row-level security.
+When Supabase is configured, the app shows a single Google sign-in button and stores watches with row-level security.
 
 ## Deploy To Vercel
 
@@ -129,9 +120,6 @@ Add the same Supabase env vars in Vercel project settings for Production, Previe
 ```bash
 VITE_SUPABASE_URL
 VITE_SUPABASE_PUBLISHABLE_KEY
-VITE_AUTH_USERNAME
-VITE_AUTH_EMAIL
-VITE_AUTH_EMAIL_DOMAIN
 ```
 
 After that, pushes to `main` can deploy the phone-ready app.
