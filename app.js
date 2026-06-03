@@ -174,7 +174,7 @@ function renderMobileHeader() {
         <div class="brand-mark" aria-hidden="true">${icon("watch", 19)}</div>
         <div>
           <p class="mobile-brand-title">Cabinet</p>
-          <p class="mobile-brand-note">Watchlist Cabinet</p>
+          <p class="mobile-brand-note">Personal watch list</p>
         </div>
       </div>
       <button class="button button-primary mobile-add-button" type="button" data-action="open-add">
@@ -196,7 +196,7 @@ function renderTopbar() {
         <label class="search-box">
           <span class="sr-only">Search watches</span>
           ${icon("search", 18)}
-          <input id="searchInput" type="search" value="${escapeAttr(state.filters.query)}" placeholder="Search brand, model, source" autocomplete="off" />
+          <input id="searchInput" type="search" value="${escapeAttr(state.filters.query)}" placeholder="Search watches" autocomplete="off" />
         </label>
         <button class="button button-primary" type="button" data-action="open-add">
           ${icon("plus", 18)}
@@ -218,12 +218,12 @@ function renderMobileSummary(summary) {
         <div class="mobile-total-cell is-wishlist">
           <span>Wishlist total</span>
           <strong>${formatCurrency(summary.wishlistTotal)}</strong>
-          <small>${summary.wishlistCount} watches</small>
+          <small>${formatWatchCount(summary.wishlistCount)}</small>
         </div>
         <div class="mobile-total-cell is-owned">
           <span>Owned value</span>
           <strong>${formatCurrency(summary.ownedValue)}</strong>
-          <small>${summary.ownedCount} watches</small>
+          <small>${formatWatchCount(summary.ownedCount)}</small>
         </div>
       </div>
       <div class="mobile-budget-row">
@@ -274,7 +274,7 @@ function renderBoard(watches) {
       <div class="board-header">
         <div>
           <h2 class="section-title">${title}</h2>
-          <p class="section-meta">${watches.length} saved ${watches.length === 1 ? "watch" : "watches"}</p>
+          <p class="section-meta">${formatWatchCount(watches.length)} saved</p>
         </div>
       </div>
       ${watches.length ? `
@@ -362,8 +362,8 @@ function renderCalculator(summary) {
     <aside class="calculator" aria-label="Wishlist price calculator">
       <div class="calculator-header">
         <div>
-          <h2 class="section-title">Price calculator</h2>
-          <p class="section-meta">Wishlist, owned value, and category gaps</p>
+          <h2 class="section-title">Costs</h2>
+          <p class="section-meta">Budget and category gaps</p>
         </div>
         ${icon("calculator", 22)}
       </div>
@@ -371,7 +371,7 @@ function renderCalculator(summary) {
         <div class="total-panel">
           <div class="total-label">Wishlist total</div>
           <div class="total-value">${formatCurrency(summary.wishlistTotal)}</div>
-          <p class="total-caption">${summary.wishlistCount} wishlist ${summary.wishlistCount === 1 ? "watch" : "watches"}</p>
+          <p class="total-caption">${formatWatchCount(summary.wishlistCount)} on the wishlist</p>
         </div>
         <div class="budget-control">
           <label for="budgetInput">Budget</label>
@@ -408,7 +408,7 @@ function renderCalculator(summary) {
 
 function renderNeedText(item) {
   if (item.wishlistCount) {
-    return `${item.wishlistCount} wishlist candidate${item.wishlistCount === 1 ? "" : "s"} - lowest ${formatCurrency(item.lowestWishlist || 0)}`;
+    return `${formatWatchCount(item.wishlistCount)} on the wishlist - lowest ${formatCurrency(item.lowestWishlist || 0)}`;
   }
 
   return `No wishlist candidate yet - add a ${item.name.toLowerCase()} watch.`;
@@ -744,6 +744,11 @@ function formatCurrency(value) {
     currency: "USD",
     maximumFractionDigits: 0
   }).format(Number(value) || 0);
+}
+
+function formatWatchCount(value) {
+  const count = Number(value) || 0;
+  return `${count} ${count === 1 ? "watch" : "watches"}`;
 }
 
 function normalizeUrl(value) {
