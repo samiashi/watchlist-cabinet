@@ -345,10 +345,7 @@ function MobileHeader({ watchCount, onAdd }: { watchCount: number; onAdd: () => 
         <div className="brand-mark" aria-hidden="true">
           <WatchIcon size={19} />
         </div>
-        <div>
-          <p className="mobile-brand-title">Cabinet</p>
-          <p className="mobile-brand-note">{formatWatchCount(watchCount)}</p>
-        </div>
+        <p className="mobile-brand-title">Cabinet</p>
       </div>
       <div className="mobile-header-actions">
         <button className="button button-primary mobile-add-button" type="button" onClick={onAdd}>
@@ -373,10 +370,7 @@ function Topbar({
 }) {
   return (
     <header className="topbar">
-      <div>
-        <h1 className="page-title">Cabinet</h1>
-        <p className="page-note">{formatWatchCount(watchCount)} saved</p>
-      </div>
+      <h1 className="page-title">Cabinet</h1>
       <div className="topbar-controls">
         <label className="search-box">
           <span className="sr-only">Search watches</span>
