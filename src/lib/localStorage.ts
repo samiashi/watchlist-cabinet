@@ -1,6 +1,6 @@
 import { sampleWatches } from "./sampleData";
 import { categories, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus, type WatchTab, type WatchSort } from "./types";
-import { makeWatchImage, normalizeImageUrls } from "./watchImages";
+import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
 
 const STORAGE_KEY = "watchlist-cabinet-state-v4";
 const LEGACY_STORAGE_KEYS = ["watchlist-cabinet-state-v3", "watchlist-cabinet-state-v2"];
@@ -39,7 +39,11 @@ export function saveLocalSnapshot(snapshot: CabinetSnapshot) {
 
 function normalizeStoredWatch(watch: Partial<Watch>, index: number): Watch {
   const category = normalizeCategory(watch.category);
-  const imageUrls = normalizeImageUrls(watch.imageUrls, watch.imageUrl, makeWatchImage(category, index));
+  const rawImageUrls = normalizeImageUrls(watch.imageUrls, watch.imageUrl);
+  const externalImageUrls = rawImageUrls.filter((url) => !isStorageImageUrl(url));
+  const storagePaths = rawImageUrls.map(getStorageImagePath).filter(Boolean);
+  const imagePaths = normalizeImagePaths(watch.imagePaths, storagePaths);
+  const imageUrls = normalizeImageUrls(externalImageUrls, null, makeWatchImage(category, index));
 
   return {
     id: watch.id || `local-${index}`,
@@ -54,6 +58,7 @@ function normalizeStoredWatch(watch: Partial<Watch>, index: number): Watch {
     sourceUrl: watch.sourceUrl || "",
     imageUrl: imageUrls[0],
     imageUrls,
+    imagePaths,
     createdAt: watch.createdAt || new Date().toISOString(),
     updatedAt: watch.updatedAt
   };

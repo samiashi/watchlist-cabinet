@@ -33,12 +33,12 @@ import {
   Waves,
   X
 } from "lucide-react";
-import { deleteCloudWatch, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, uploadWatchImages, upsertCloudWatch } from "./lib/cloudStorage";
+import { deleteCloudWatch, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, signWatchImagePaths, uploadWatchImages, upsertCloudWatch } from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { categories, maxWatchImages, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
-import { getWatchImages, makeWatchImage, normalizeImageUrls } from "./lib/watchImages";
+import { getStorageImagePath, getWatchImages, isStorageImageUrl, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./lib/watchImages";
 
 const emptyFilters: CabinetFilters = { tab: "all", query: "", sort: "relevance" };
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
@@ -215,14 +215,18 @@ function CabinetApp() {
     const model = cleanText(form.get("model"));
     const sourceUrl = normalizeUrl(form.get("sourceUrl"));
     const imageUrls = getFormImageUrls(form);
+    const legacyStoragePaths = imageUrls.map(getStorageImagePath).filter(Boolean);
+    const externalImageUrls = imageUrls.filter((url) => !isStorageImageUrl(url));
+    const existingImagePaths = getFormImagePaths(form);
     const imageFiles = getFormImageFiles(form);
+    const imageCount = externalImageUrls.length + legacyStoragePaths.length + existingImagePaths.length + imageFiles.length;
 
     if (!brand || !model || !sourceUrl) {
       showToast("Brand, model, and URL are required.");
       return;
     }
 
-    if (imageUrls.length + imageFiles.length > maxWatchImages) {
+    if (imageCount > maxWatchImages) {
       showToast(`Keep images to ${maxWatchImages} or fewer.`);
       return;
     }
@@ -232,18 +236,30 @@ function CabinetApp() {
       return;
     }
 
-    let uploadedImageUrls: string[] = [];
+    let uploadedImagePaths: string[] = [];
 
     if (imageFiles.length && cloudUser) {
       try {
-        uploadedImageUrls = await uploadWatchImages(cloudUser, id, imageFiles);
+        uploadedImagePaths = await uploadWatchImages(cloudUser, id, imageFiles);
       } catch (error) {
         showToast(error instanceof Error ? error.message : "Images were not uploaded.");
         return;
       }
     }
 
-    const allImageUrls = normalizeImageUrls([...imageUrls, ...uploadedImageUrls], null, makeWatchImage(category, id));
+    const imagePaths = normalizeImagePaths(existingImagePaths, legacyStoragePaths, uploadedImagePaths);
+    let signedImageUrls: string[] = [];
+
+    if (imagePaths.length && cloudUser) {
+      try {
+        signedImageUrls = await signWatchImagePaths(imagePaths);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Images were not prepared.");
+        return;
+      }
+    }
+
+    const allImageUrls = normalizeImageUrls([...externalImageUrls, ...signedImageUrls], null, makeWatchImage(category, id));
 
     const watch: Watch = {
       id,
@@ -258,6 +274,7 @@ function CabinetApp() {
       sourceUrl,
       imageUrl: allImageUrls[0],
       imageUrls: allImageUrls,
+      imagePaths,
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1003,9 +1020,11 @@ function WatchDrawer({
     referenceNumber: "",
     sourceUrl: "",
     imageUrl: "",
-    imageUrls: []
+    imageUrls: [],
+    imagePaths: []
   };
-  const existingImageUrls = editing ? getWatchImages(editing).filter((url) => !url.startsWith("data:")) : [];
+  const existingImageUrls = editing ? getWatchImages(editing).filter((url) => !url.startsWith("data:") && !isStorageImageUrl(url)) : [];
+  const existingImagePaths = editing ? normalizeImagePaths(editing.imagePaths, getWatchImages(editing).map(getStorageImagePath).filter(Boolean)) : [];
   const imageSlots = Array.from({ length: maxWatchImages }, (_, index) => existingImageUrls[index] || "");
 
   return (
@@ -1134,8 +1153,11 @@ function WatchDrawer({
                 <Upload size={15} />
                 Upload images
               </label>
+              {existingImagePaths.map((path) => (
+                <input type="hidden" name="imagePaths" value={path} key={path} />
+              ))}
               <input id="imageFiles" name="imageFiles" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple />
-              <p className="field-help">Uploaded files are served from the Supabase `watch-images` bucket.</p>
+              <p className="field-help">Uploaded files stay private and are shown through short-lived signed URLs.</p>
             </div>
           </div>
         </div>
@@ -1176,6 +1198,10 @@ function getFormImageUrls(form: FormData) {
     .map((value) => normalizeUrl(value))
     .filter(Boolean)
     .slice(0, maxWatchImages);
+}
+
+function getFormImagePaths(form: FormData) {
+  return normalizeImagePaths(form.getAll("imagePaths"));
 }
 
 function getFormImageFiles(form: FormData) {

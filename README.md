@@ -41,6 +41,7 @@ A private, mobile-first watch collecting app for tracking owned watches, wishlis
 
 - Add watches from any shop page with brand, model, reference number, category, status, price, movement, and case size.
 - Save up to five images per watch from image URLs or Supabase Storage uploads, including AVIF.
+- Keep uploaded images in a private Supabase Storage bucket and serve them through signed URLs.
 - Track owned and wishlist watches in one dark, image-first collection grid.
 - Filter by All, Wishlist, and Owned.
 - Sort by relevance, price high to low, or price low to high.
@@ -88,15 +89,16 @@ Set:
 VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_SITE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-The schema also creates a public `watch-images` Storage bucket so uploaded watch images can render inside shared wishlist links.
+The schema creates a private `watch-images` Storage bucket. `SUPABASE_SERVICE_ROLE_KEY` is used only by the Vercel API route that signs private wishlist images for public share links; do not expose it with a `VITE_` prefix.
 
 Then enable Google as the only Supabase Auth provider and allow-list the deployed app URL plus local dev URL in Supabase Auth URL settings.
 
 ## Deploy
 
-Deploy the private GitHub repo to Vercel and add the same env vars in the Vercel project settings. The included `vercel.json` rewrites direct routes such as `/share/:token` back to the app.
+Deploy the private GitHub repo to Vercel and add the same env vars in the Vercel project settings. The included API route signs private storage images for `/share/:token`, while `vercel.json` rewrites direct app routes back to the SPA.
 
 ## Scripts
 

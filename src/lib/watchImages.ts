@@ -75,3 +75,49 @@ export function getWatchImages(watch: {
 }) {
   return normalizeImageUrls(watch.imageUrls, watch.imageUrl, makeWatchImage(watch.category, watch.id));
 }
+
+export function getStorageImagePath(value: unknown) {
+  if (typeof value !== "string") return "";
+
+  try {
+    const url = new URL(value);
+    const publicMarker = "/storage/v1/object/public/watch-images/";
+    const signedMarker = "/storage/v1/object/sign/watch-images/";
+    const marker = url.pathname.includes(publicMarker) ? publicMarker : url.pathname.includes(signedMarker) ? signedMarker : "";
+    if (!marker) return "";
+
+    return decodeURIComponent(url.pathname.split(marker)[1] || "").replace(/^\/+/, "");
+  } catch {
+    return "";
+  }
+}
+
+export function isStorageImageUrl(value: unknown) {
+  return Boolean(getStorageImagePath(value));
+}
+
+export function normalizeImagePaths(...sources: unknown[]) {
+  const paths: string[] = [];
+  const seen = new Set<string>();
+
+  function addPath(value: unknown) {
+    if (typeof value !== "string") return;
+    const path = value.trim().replace(/^\/+/, "");
+    if (!path || seen.has(path)) return;
+    seen.add(path);
+    paths.push(path);
+  }
+
+  sources.forEach((source) => {
+    if (Array.isArray(source)) {
+      source.forEach((item) => {
+        addPath(getStorageImagePath(item) || item);
+      });
+      return;
+    }
+
+    addPath(getStorageImagePath(source) || source);
+  });
+
+  return paths.slice(0, maxWatchImages);
+}

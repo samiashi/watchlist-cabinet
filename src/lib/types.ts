@@ -20,6 +20,7 @@ export interface Watch {
   sourceUrl: string;
   imageUrl: string;
   imageUrls: string[];
+  imagePaths: string[];
   createdAt: string;
   updatedAt?: string;
 }
