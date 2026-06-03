@@ -62,7 +62,7 @@ export default async function handler(request, response) {
   }
 
   const rows = watchesResult.data || [];
-  const allPaths = normalizeImagePaths(rows.flatMap((row) => getStoragePaths(row)));
+  const allPaths = normalizeAllImagePaths(rows.flatMap((row) => getStoragePaths(row)));
   const signedUrlMap = new Map();
 
   if (allPaths.length) {
@@ -124,6 +124,14 @@ function normalizeImageUrls(...sources) {
 }
 
 function normalizeImagePaths(...sources) {
+  return collectImagePaths(5, ...sources);
+}
+
+function normalizeAllImagePaths(...sources) {
+  return collectImagePaths(Number.POSITIVE_INFINITY, ...sources);
+}
+
+function collectImagePaths(limit, ...sources) {
   const paths = [];
   const seen = new Set();
 
@@ -138,7 +146,7 @@ function normalizeImagePaths(...sources) {
     });
   });
 
-  return paths.slice(0, 5);
+  return paths.slice(0, limit);
 }
 
 function getStorageImagePath(value) {

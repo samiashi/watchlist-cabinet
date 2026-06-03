@@ -101,6 +101,14 @@ export function isStorageImageUrl(value: unknown) {
 }
 
 export function normalizeImagePaths(...sources: unknown[]) {
+  return collectImagePaths(maxWatchImages, ...sources);
+}
+
+export function normalizeAllImagePaths(...sources: unknown[]) {
+  return collectImagePaths(Number.POSITIVE_INFINITY, ...sources);
+}
+
+function collectImagePaths(limit: number, ...sources: unknown[]) {
   const paths: string[] = [];
   const seen = new Set<string>();
 
@@ -123,5 +131,5 @@ export function normalizeImagePaths(...sources: unknown[]) {
     addPath(getStorageImagePath(source) || source);
   });
 
-  return paths.slice(0, maxWatchImages);
+  return paths.slice(0, limit);
 }

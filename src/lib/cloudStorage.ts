@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase, supabaseUrl } from "./supabase";
 import { maxWatchImages, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./types";
-import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
+import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeAllImagePaths, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
 
 const watchImageBucket = "watch-images";
 const signedImageExpiresIn = 60 * 60;
@@ -182,7 +182,7 @@ function toWatchRow(user: User, watch: Watch): WatchRow {
 
 export async function signWatchImagePaths(paths: string[]) {
   const client = supabase;
-  const imagePaths = normalizeImagePaths(paths);
+  const imagePaths = normalizeAllImagePaths(paths);
   if (!client || !imagePaths.length) return [];
 
   const { data, error } = await client.storage.from(watchImageBucket).createSignedUrls(imagePaths, signedImageExpiresIn);
@@ -196,7 +196,7 @@ export async function signWatchImagePaths(paths: string[]) {
 }
 
 async function withSignedStorageImages(watches: Watch[]) {
-  const paths = normalizeImagePaths(watches.flatMap((watch) => watch.imagePaths));
+  const paths = normalizeAllImagePaths(watches.flatMap((watch) => watch.imagePaths));
   if (!paths.length) return watches;
 
   const signedUrlMap = new Map<string, string>();
