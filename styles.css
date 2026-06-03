@@ -878,10 +878,17 @@ svg {
   gap: 8px;
 }
 
-.image-preview-frame {
+.image-preview-stage {
   min-height: 0;
   padding: 12px;
   background: rgba(0, 0, 0, 0.16);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.image-preview-frame {
+  min-height: 0;
   display: grid;
   place-items: center;
 }
@@ -892,6 +899,39 @@ svg {
   object-fit: contain;
   background: #f2f2f3;
   border-radius: var(--radius);
+  display: block;
+}
+
+.image-preview-thumbs {
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 1px;
+}
+
+.image-preview-thumb {
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  opacity: 0.68;
+}
+
+.image-preview-thumb.is-active {
+  border-color: rgba(10, 132, 255, 0.86);
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.18);
+}
+
+.image-preview-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #f2f2f3;
   display: block;
 }
 
@@ -993,6 +1033,58 @@ svg {
   height: 44px;
   border-radius: var(--radius);
   padding: 0 11px;
+}
+
+.field input[type="file"] {
+  height: auto;
+  min-height: 44px;
+  padding: 9px 11px;
+  color: var(--ink-soft);
+}
+
+.field input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.field-help {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 540;
+}
+
+.image-url-list {
+  display: grid;
+  gap: 8px;
+}
+
+.image-url-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.image-url-row span {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.07);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 720;
 }
 
 .toast {
@@ -1380,12 +1472,18 @@ svg {
     font-size: 17px;
   }
 
-  .image-preview-frame {
+  .image-preview-stage {
     padding: 8px;
+    gap: 8px;
   }
 
   .image-preview-frame img {
     max-height: 74svh;
+  }
+
+  .image-preview-thumb {
+    width: 48px;
+    height: 48px;
   }
 
   .drawer-backdrop {

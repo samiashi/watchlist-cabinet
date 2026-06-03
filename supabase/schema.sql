@@ -10,10 +10,13 @@ create table if not exists public.watches (
   movement text not null default 'Automatic' check (movement in ('Quartz', 'Automatic')),
   case_size_mm numeric(4, 1),
   price numeric(12, 2) not null default 0,
+  reference_number text,
   source_url text not null,
   image_url text,
+  image_urls text[] not null default '{}',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint watches_image_urls_count check (cardinality(image_urls) <= 5)
 );
 
 alter table public.watches
@@ -21,6 +24,17 @@ add column if not exists movement text not null default 'Automatic';
 
 alter table public.watches
 add column if not exists case_size_mm numeric(4, 1);
+
+alter table public.watches
+add column if not exists reference_number text;
+
+alter table public.watches
+add column if not exists image_urls text[] not null default '{}';
+
+update public.watches
+set image_urls = array[image_url]
+where image_url is not null
+  and cardinality(image_urls) = 0;
 
 do $$
 begin
@@ -33,6 +47,64 @@ begin
     add constraint watches_movement_check check (movement in ('Quartz', 'Automatic'));
   end if;
 end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'watches_image_urls_count'
+      and conrelid = 'public.watches'::regclass
+  ) then
+    alter table public.watches
+    add constraint watches_image_urls_count check (cardinality(image_urls) <= 5);
+  end if;
+end $$;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'watch-images',
+  'watch-images',
+  true,
+  10485760,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Users can upload watch images" on storage.objects;
+drop policy if exists "Users can update watch images" on storage.objects;
+drop policy if exists "Users can delete watch images" on storage.objects;
+
+create policy "Users can upload watch images"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'watch-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+create policy "Users can update watch images"
+on storage.objects for update
+to authenticated
+using (
+  bucket_id = 'watch-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+)
+with check (
+  bucket_id = 'watch-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+create policy "Users can delete watch images"
+on storage.objects for delete
+to authenticated
+using (
+  bucket_id = 'watch-images'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
 
 create index if not exists watches_user_created_idx on public.watches (user_id, created_at desc);
 create index if not exists watches_user_status_idx on public.watches (user_id, status);
@@ -113,8 +185,10 @@ returns table (
   movement text,
   case_size_mm numeric,
   price numeric,
+  reference_number text,
   source_url text,
   image_url text,
+  image_urls text[],
   created_at timestamptz,
   updated_at timestamptz
 )
@@ -132,8 +206,10 @@ as $$
     watches.movement,
     watches.case_size_mm,
     watches.price,
+    watches.reference_number,
     watches.source_url,
     watches.image_url,
+    watches.image_urls,
     watches.created_at,
     watches.updated_at
   from public.watch_share_links

@@ -1,4 +1,5 @@
 export const categories = ["Dress", "Diver", "Field", "Chronograph", "GMT", "Daily"] as const;
+export const maxWatchImages = 5;
 
 export type WatchCategory = (typeof categories)[number];
 export type WatchStatus = "owned" | "wishlist";
@@ -15,8 +16,10 @@ export interface Watch {
   movement: WatchMovement;
   caseSize: number;
   price: number;
+  referenceNumber: string;
   sourceUrl: string;
   imageUrl: string;
+  imageUrls: string[];
   createdAt: string;
   updatedAt?: string;
 }

@@ -1,7 +1,7 @@
 import type { Watch } from "./types";
 import { makeWatchImage } from "./watchImages";
 
-const watches: Omit<Watch, "imageUrl">[] = [
+const watches: Omit<Watch, "imageUrl" | "imageUrls" | "referenceNumber">[] = [
   {
     id: "seed-001",
     brand: "Nomos",
@@ -78,5 +78,7 @@ const watches: Omit<Watch, "imageUrl">[] = [
 
 export const sampleWatches: Watch[] = watches.map((watch, index) => ({
   ...watch,
-  imageUrl: makeWatchImage(watch.category, index)
+  referenceNumber: "",
+  imageUrl: makeWatchImage(watch.category, index),
+  imageUrls: [makeWatchImage(watch.category, index)]
 }));

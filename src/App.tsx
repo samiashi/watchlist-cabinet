@@ -9,7 +9,8 @@ import {
   Gem,
   Grid3X3,
   Heart,
-  Image as ImageIcon,
+  Hash,
+  Images,
   Link as LinkIcon,
   Loader2,
   Mountain,
@@ -25,16 +26,17 @@ import {
   Sun,
   Timer,
   Trash2,
+  Upload,
   Watch as WatchIcon,
   Waves,
   X
 } from "lucide-react";
-import { deleteCloudWatch, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, upsertCloudWatch } from "./lib/cloudStorage";
+import { deleteCloudWatch, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, uploadWatchImages, upsertCloudWatch } from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { categories, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
-import { makeWatchImage } from "./lib/watchImages";
+import { categories, maxWatchImages, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
+import { getWatchImages, makeWatchImage, normalizeImageUrls } from "./lib/watchImages";
 
 const emptyFilters: CabinetFilters = { tab: "all", query: "", sort: "relevance" };
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
@@ -204,28 +206,58 @@ function CabinetApp() {
     const form = new FormData(event.currentTarget);
     const editingId = drawer.editingId;
     const existing = editingId ? watches.find((watch) => watch.id === editingId) : null;
+    const id = existing?.id || createId();
     const category = String(form.get("category")) as WatchCategory;
-    const imageUrl = String(form.get("imageUrl") || "").trim();
+    const brand = cleanText(form.get("brand"));
+    const model = cleanText(form.get("model"));
+    const sourceUrl = normalizeUrl(form.get("sourceUrl"));
+    const imageUrls = getFormImageUrls(form);
+    const imageFiles = getFormImageFiles(form);
+
+    if (!brand || !model || !sourceUrl) {
+      showToast("Brand, model, and URL are required.");
+      return;
+    }
+
+    if (imageUrls.length + imageFiles.length > maxWatchImages) {
+      showToast(`Keep images to ${maxWatchImages} or fewer.`);
+      return;
+    }
+
+    if (imageFiles.length && !cloudUser) {
+      showToast("Sign in with Google to upload watch images.");
+      return;
+    }
+
+    let uploadedImageUrls: string[] = [];
+
+    if (imageFiles.length && cloudUser) {
+      try {
+        uploadedImageUrls = await uploadWatchImages(cloudUser, id, imageFiles);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Images were not uploaded.");
+        return;
+      }
+    }
+
+    const allImageUrls = normalizeImageUrls([...imageUrls, ...uploadedImageUrls], null, makeWatchImage(category, id));
 
     const watch: Watch = {
-      id: existing?.id || createId(),
-      brand: cleanText(form.get("brand")),
-      model: cleanText(form.get("model")),
+      id,
+      brand,
+      model,
       category,
       status: String(form.get("status")) as WatchStatus,
       movement: normalizeMovement(form.get("movement")),
       caseSize: Number(form.get("caseSize")) || 0,
       price: Number(form.get("price")) || 0,
-      sourceUrl: normalizeUrl(form.get("sourceUrl")),
-      imageUrl: imageUrl || existing?.imageUrl || makeWatchImage(category, watches.length + 1),
+      referenceNumber: cleanText(form.get("referenceNumber")),
+      sourceUrl,
+      imageUrl: allImageUrls[0],
+      imageUrls: allImageUrls,
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-
-    if (!watch.brand || !watch.model || !watch.sourceUrl) {
-      showToast("Brand, model, and URL are required.");
-      return;
-    }
 
     try {
       await saveWatch(watch);
@@ -673,6 +705,7 @@ function WatchRow({
   onPreview: (watch: Watch) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
+  const primaryImage = getWatchImages(watch)[0];
 
   return (
     <article className={`watch-row is-${watch.status}`}>
@@ -685,7 +718,7 @@ function WatchRow({
         >
           <img
             className="watch-image"
-            src={watch.imageUrl || makeWatchImage(watch.category, watch.id)}
+            src={primaryImage}
             alt={`${watch.brand} ${watch.model}`}
             onError={(event) => {
               event.currentTarget.src = makeWatchImage(watch.category, index);
@@ -754,8 +787,14 @@ function ImagePreview({
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => Promise<void>;
 }) {
-  const imageUrl = watch.imageUrl || makeWatchImage(watch.category, watch.id);
+  const images = getWatchImages(watch);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const imageUrl = images[selectedImageIndex] || images[0] || makeWatchImage(watch.category, watch.id);
   const sourceDomain = getDomain(watch.sourceUrl);
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [watch.id]);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -808,8 +847,38 @@ function ImagePreview({
             </button>
           </div>
         </div>
-        <div className="image-preview-frame">
-          <img src={imageUrl} alt={`${watch.brand} ${watch.model}`} />
+        <div className="image-preview-stage">
+          <div className="image-preview-frame">
+            <img
+              src={imageUrl}
+              alt={`${watch.brand} ${watch.model}`}
+              onError={(event) => {
+                event.currentTarget.src = makeWatchImage(watch.category, watch.id);
+              }}
+            />
+          </div>
+          {images.length > 1 ? (
+            <div className="image-preview-thumbs" aria-label="Watch images">
+              {images.map((image, index) => (
+                <button
+                  className={`image-preview-thumb ${selectedImageIndex === index ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => setSelectedImageIndex(index)}
+                  aria-label={`Show image ${index + 1} of ${images.length}`}
+                  aria-pressed={selectedImageIndex === index}
+                  key={`${image}-${index}`}
+                >
+                  <img
+                    src={image}
+                    alt=""
+                    onError={(event) => {
+                      event.currentTarget.src = makeWatchImage(watch.category, index);
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -843,9 +912,13 @@ function WatchDrawer({
     movement: "Automatic",
     caseSize: "",
     price: "",
+    referenceNumber: "",
     sourceUrl: "",
-    imageUrl: ""
+    imageUrl: "",
+    imageUrls: []
   };
+  const existingImageUrls = editing ? getWatchImages(editing).filter((url) => !url.startsWith("data:")) : [];
+  const imageSlots = Array.from({ length: maxWatchImages }, (_, index) => existingImageUrls[index] || "");
 
   return (
     <div
@@ -883,6 +956,13 @@ function WatchDrawer({
                 Model
               </label>
               <input id="model" name="model" defaultValue={watch.model} placeholder="Speedmaster" required />
+            </div>
+            <div className="field">
+              <label htmlFor="referenceNumber">
+                <Hash size={15} />
+                Reference
+              </label>
+              <input id="referenceNumber" name="referenceNumber" defaultValue={watch.referenceNumber} placeholder="SPB143J1" />
             </div>
             <div className="field">
               <label htmlFor="category">
@@ -941,17 +1021,33 @@ function WatchDrawer({
               <input id="price" name="price" type="number" min="0" step="1" defaultValue={String(watch.price ?? "")} placeholder="9200" inputMode="decimal" required />
             </div>
             <div className="field is-wide">
-              <label htmlFor="imageUrl">
-                <ImageIcon size={15} />
-                Photo URL
+              <label>
+                <Images size={15} />
+                Images
               </label>
-              <input
-                id="imageUrl"
-                name="imageUrl"
-                type="url"
-                defaultValue={watch.imageUrl && !watch.imageUrl.startsWith("data:") ? watch.imageUrl : ""}
-                placeholder="https://image.example.com/watch.jpg"
-              />
+              <p className="field-help">Add up to {maxWatchImages} image URLs or upload files to Supabase Storage.</p>
+              <div className="image-url-list">
+                {imageSlots.map((imageUrl, index) => (
+                  <label className="image-url-row" key={index}>
+                    <span>{index + 1}</span>
+                    <input
+                      name="imageUrls"
+                      type="url"
+                      defaultValue={imageUrl}
+                      placeholder={index === 0 ? "Primary image URL" : "Extra image URL"}
+                      aria-label={`Image URL ${index + 1}`}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="field is-wide">
+              <label htmlFor="imageFiles">
+                <Upload size={15} />
+                Upload images
+              </label>
+              <input id="imageFiles" name="imageFiles" type="file" accept="image/*" multiple />
+              <p className="field-help">Uploaded files are served from the Supabase `watch-images` bucket.</p>
             </div>
           </div>
         </div>
@@ -986,6 +1082,21 @@ function CategoryGlyph({ category, size = 14 }: { category: WatchCategory; size?
   return <Icon size={size} aria-hidden="true" />;
 }
 
+function getFormImageUrls(form: FormData) {
+  return form
+    .getAll("imageUrls")
+    .map((value) => normalizeUrl(value))
+    .filter(Boolean)
+    .slice(0, maxWatchImages);
+}
+
+function getFormImageFiles(form: FormData) {
+  return form
+    .getAll("imageFiles")
+    .filter((value): value is File => value instanceof File && value.size > 0)
+    .slice(0, maxWatchImages);
+}
+
 function getSummary(watches: Watch[]): CabinetSummary {
   const owned = watches.filter((watch) => watch.status === "owned");
   const wishlist = watches.filter((watch) => watch.status === "wishlist");
@@ -1007,7 +1118,7 @@ function getFilteredWatches(watches: Watch[], filters: CabinetFilters) {
     .filter((watch) => filters.tab === "all" || watch.status === filters.tab)
     .filter((watch) => {
       if (!query) return true;
-      const haystack = [watch.brand, watch.model, watch.category, watch.status, watch.movement, formatCaseSize(watch.caseSize), getDomain(watch.sourceUrl)]
+      const haystack = [watch.brand, watch.model, watch.referenceNumber, watch.category, watch.status, watch.movement, formatCaseSize(watch.caseSize), getDomain(watch.sourceUrl)]
         .join(" ")
         .toLowerCase();
       return haystack.includes(query);
@@ -1044,7 +1155,7 @@ function normalizeMovement(value: FormDataEntryValue | string | null | undefined
 function getWatchRelevance(watch: Watch, query: string) {
   if (!query) return 0;
 
-  const fields = [watch.brand, watch.model, watch.category, watch.status, watch.movement, formatCaseSize(watch.caseSize), getDomain(watch.sourceUrl)].map((value) =>
+  const fields = [watch.brand, watch.model, watch.referenceNumber, watch.category, watch.status, watch.movement, formatCaseSize(watch.caseSize), getDomain(watch.sourceUrl)].map((value) =>
     value.toLowerCase()
   );
   return fields.reduce((score, value) => {

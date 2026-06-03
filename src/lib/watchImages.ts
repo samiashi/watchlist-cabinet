@@ -1,4 +1,4 @@
-import type { WatchCategory } from "./types";
+import { maxWatchImages, type WatchCategory } from "./types";
 
 const categoryThemes: Record<WatchCategory, { bg: string; case: string; dial: string; strap: string; detail: string }> = {
   Dress: { bg: "#1b1714", case: "#d5b26a", dial: "#f0dfbf", strap: "#17191d", detail: "#5d4930" },
@@ -43,4 +43,35 @@ export function makeWatchImage(category: WatchCategory, seed: string | number = 
   `;
 
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+export function normalizeImageUrls(imageUrls: unknown, imageUrl: unknown, fallback = "") {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  function addUrl(value: unknown) {
+    if (typeof value !== "string") return;
+    const url = value.trim();
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    urls.push(url);
+  }
+
+  if (Array.isArray(imageUrls)) {
+    imageUrls.forEach(addUrl);
+  }
+
+  addUrl(imageUrl);
+  if (!urls.length) addUrl(fallback);
+
+  return urls.slice(0, maxWatchImages);
+}
+
+export function getWatchImages(watch: {
+  id: string;
+  category: WatchCategory;
+  imageUrl?: string | null;
+  imageUrls?: string[] | null;
+}) {
+  return normalizeImageUrls(watch.imageUrls, watch.imageUrl, makeWatchImage(watch.category, watch.id));
 }

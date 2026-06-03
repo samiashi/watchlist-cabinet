@@ -1,6 +1,6 @@
 import { sampleWatches } from "./sampleData";
-import type { CabinetSnapshot, Watch, WatchMovement } from "./types";
-import { makeWatchImage } from "./watchImages";
+import { categories, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus, type WatchTab, type WatchSort } from "./types";
+import { makeWatchImage, normalizeImageUrls } from "./watchImages";
 
 const STORAGE_KEY = "watchlist-cabinet-state-v4";
 const LEGACY_STORAGE_KEYS = ["watchlist-cabinet-state-v3", "watchlist-cabinet-state-v2"];
@@ -22,9 +22,9 @@ export function loadLocalSnapshot(): CabinetSnapshot {
     return {
       watches: saved.watches.map(normalizeStoredWatch),
       filters: {
-        tab: saved.filters?.tab || "all",
+        tab: normalizeTab(saved.filters?.tab),
         query: saved.filters?.query || "",
-        sort: saved.filters?.sort || "relevance"
+        sort: normalizeSort(saved.filters?.sort)
       }
     };
   } catch (error) {
@@ -37,23 +37,44 @@ export function saveLocalSnapshot(snapshot: CabinetSnapshot) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
 }
 
-function normalizeStoredWatch(watch: Watch, index: number): Watch {
+function normalizeStoredWatch(watch: Partial<Watch>, index: number): Watch {
+  const category = normalizeCategory(watch.category);
+  const imageUrls = normalizeImageUrls(watch.imageUrls, watch.imageUrl, makeWatchImage(category, index));
+
   return {
-    id: watch.id,
-    brand: watch.brand,
-    model: watch.model,
-    category: watch.category,
-    status: watch.status,
+    id: watch.id || `local-${index}`,
+    brand: watch.brand || "",
+    model: watch.model || "",
+    category,
+    status: normalizeStatus(watch.status),
     movement: normalizeMovement(watch.movement),
     caseSize: Number(watch.caseSize) || 0,
     price: Number(watch.price) || 0,
-    sourceUrl: watch.sourceUrl,
-    imageUrl: watch.imageUrl || makeWatchImage(watch.category, index),
-    createdAt: watch.createdAt,
+    referenceNumber: watch.referenceNumber || "",
+    sourceUrl: watch.sourceUrl || "",
+    imageUrl: imageUrls[0],
+    imageUrls,
+    createdAt: watch.createdAt || new Date().toISOString(),
     updatedAt: watch.updatedAt
   };
 }
 
+function normalizeCategory(value: unknown): WatchCategory {
+  return categories.includes(value as WatchCategory) ? (value as WatchCategory) : "Daily";
+}
+
+function normalizeStatus(value: unknown): WatchStatus {
+  return value === "owned" ? "owned" : "wishlist";
+}
+
 function normalizeMovement(value: unknown): WatchMovement {
   return value === "Quartz" ? "Quartz" : "Automatic";
+}
+
+function normalizeTab(value: unknown): WatchTab {
+  return value === "owned" || value === "wishlist" || value === "all" ? value : "all";
+}
+
+function normalizeSort(value: unknown): WatchSort {
+  return value === "price-desc" || value === "price-asc" || value === "relevance" ? value : "relevance";
 }

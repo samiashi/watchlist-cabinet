@@ -39,12 +39,13 @@ A private, mobile-first watch collecting app for tracking owned watches, wishlis
 
 ## Features
 
-- Add watches from any shop page with brand, model, photo, category, status, price, movement, and case size.
+- Add watches from any shop page with brand, model, reference number, category, status, price, movement, and case size.
+- Save up to five images per watch, either from image URLs or Supabase Storage uploads.
 - Track owned and wishlist watches in one dark, image-first collection grid.
 - Filter by All, Wishlist, and Owned.
 - Sort by relevance, price high to low, or price low to high.
 - See owned value and wishlist total in AED.
-- Open a large image preview with edit, delete, and external shop link actions.
+- Open a large image gallery with edit, delete, and external shop link actions.
 - Share a public wishlist link that does not require visitors to log in.
 - Use local browser storage without Supabase, or sync privately with Google login and Supabase.
 
@@ -69,7 +70,7 @@ Without Supabase env vars, the app uses sample data and stores changes in `local
 
 ## Supabase
 
-Run the database schema in Supabase SQL Editor:
+Run the database and storage schema in Supabase SQL Editor:
 
 ```text
 supabase/schema.sql
@@ -88,6 +89,8 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_SITE_URL=
 ```
+
+The schema also creates a public `watch-images` Storage bucket so uploaded watch images can render inside shared wishlist links.
 
 Then enable Google as the only Supabase Auth provider and allow-list the deployed app URL plus local dev URL in Supabase Auth URL settings.
 
