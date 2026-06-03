@@ -17,12 +17,12 @@ const navItems = [
 ];
 
 const categoryThemes = {
-  Dress: { bg: "#e8dfcf", case: "#b18a4a", dial: "#f9f4e8", strap: "#3a3030", detail: "#6d5634" },
-  Diver: { bg: "#dbe8ed", case: "#6c8792", dial: "#173544", strap: "#213642", detail: "#cddde3" },
-  Field: { bg: "#e0e6dc", case: "#61705f", dial: "#f2f0df", strap: "#4c513e", detail: "#485141" },
-  Chronograph: { bg: "#e7e3e0", case: "#777a7b", dial: "#f5f6f6", strap: "#26292c", detail: "#7a3440" },
-  GMT: { bg: "#dee7ee", case: "#607989", dial: "#f8f9f8", strap: "#2d3d45", detail: "#b18a4a" },
-  Daily: { bg: "#e9ecef", case: "#6e747a", dial: "#ffffff", strap: "#6b625b", detail: "#5d7f90" }
+  Dress: { bg: "#1b1714", case: "#d5b26a", dial: "#f0dfbf", strap: "#17191d", detail: "#5d4930" },
+  Diver: { bg: "#101d24", case: "#7794a1", dial: "#102a34", strap: "#121d24", detail: "#d4e8ef" },
+  Field: { bg: "#151d15", case: "#7c8e73", dial: "#1c261b", strap: "#202718", detail: "#dfe8d4" },
+  Chronograph: { bg: "#1a191b", case: "#8d9294", dial: "#23272a", strap: "#111317", detail: "#d66b7e" },
+  GMT: { bg: "#131c24", case: "#7895a6", dial: "#17242b", strap: "#121c23", detail: "#d5b26a" },
+  Daily: { bg: "#17191d", case: "#7c838a", dial: "#20252a", strap: "#26221f", detail: "#7fb4cb" }
 };
 
 const sampleWatches = [
@@ -1024,7 +1024,7 @@ function makeWatchImage(category, seed = 0) {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" role="img" aria-label="${category} watch illustration">
       <rect width="520" height="360" fill="${theme.bg}"/>
-      <path d="M0 304 C105 254 174 313 277 271 C380 229 433 252 520 211 L520 360 L0 360 Z" fill="#ffffff" opacity="0.34"/>
+      <path d="M0 304 C105 254 174 313 277 271 C380 229 433 252 520 211 L520 360 L0 360 Z" fill="#f5f1ea" opacity="0.08"/>
       <g transform="translate(260 180)">
         <rect x="-46" y="-160" width="92" height="112" rx="22" fill="${theme.strap}"/>
         <rect x="-44" y="48" width="88" height="132" rx="22" fill="${theme.strap}"/>
