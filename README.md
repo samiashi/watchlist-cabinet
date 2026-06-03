@@ -40,13 +40,13 @@ A private, mobile-first watch collecting app for tracking owned watches, wishlis
 ## Features
 
 - Add watches from any shop page with brand, model, reference number, category, status, price, movement, and case size.
-- Save up to five images per watch from image URLs or Supabase Storage uploads, including AVIF.
+- Save up to five uploaded images per watch, including AVIF.
 - Keep uploaded images in a private Supabase Storage bucket and serve them through signed URLs.
 - Track owned and wishlist watches in one dark, image-first collection grid.
 - Filter by All, Wishlist, and Owned.
 - Sort by relevance, price high to low, or price low to high.
 - See owned value and wishlist total in AED.
-- Swipe through image sets on the grid, then open a large gallery with edit, delete, and external shop link actions.
+- Open a large image gallery with image switching, edit, delete, and external shop link actions.
 - Share a public wishlist link that does not require visitors to log in.
 - Use local browser storage without Supabase, or sync privately with Google login and Supabase.
 

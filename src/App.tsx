@@ -5,8 +5,10 @@ import {
   BadgeCheck,
   Banknote,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   Gem,
   Grid3X3,
@@ -33,18 +35,22 @@ import {
   Waves,
   X
 } from "lucide-react";
-import { deleteCloudWatch, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, signWatchImagePaths, uploadWatchImages, upsertCloudWatch } from "./lib/cloudStorage";
+import { deleteCloudWatch, deleteWatchImages, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, signWatchImagePaths, uploadWatchImages, upsertCloudWatch } from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { categories, maxWatchImages, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
-import { getStorageImagePath, getWatchImages, isStorageImageUrl, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./lib/watchImages";
+import { getStorageImagePath, getWatchImages, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./lib/watchImages";
 
 const emptyFilters: CabinetFilters = { tab: "all", query: "", sort: "relevance" };
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
+const pendingImageFiles = new Map<string, File>();
 
 type DrawerState = { open: false; editingId: null } | { open: true; editingId: string | null };
 type PreviewState = { watch: Watch; imageIndex: number };
+type ManagedImage =
+  | { id: string; kind: "stored"; path: string; url: string }
+  | { id: string; kind: "upload"; file: File; url: string };
 
 function App() {
   const shareToken = getShareTokenFromPath();
@@ -214,12 +220,10 @@ function CabinetApp() {
     const brand = cleanText(form.get("brand"));
     const model = cleanText(form.get("model"));
     const sourceUrl = normalizeUrl(form.get("sourceUrl"));
-    const imageUrls = getFormImageUrls(form);
-    const legacyStoragePaths = imageUrls.map(getStorageImagePath).filter(Boolean);
-    const externalImageUrls = imageUrls.filter((url) => !isStorageImageUrl(url));
-    const existingImagePaths = getFormImagePaths(form);
+    const imageOrder = getFormImageOrder(form);
     const imageFiles = getFormImageFiles(form);
-    const imageCount = externalImageUrls.length + legacyStoragePaths.length + existingImagePaths.length + imageFiles.length;
+    const previousImagePaths = existing ? getStoredImageItems(existing).map((image) => image.path) : [];
+    const imageCount = imageOrder.length;
 
     if (!brand || !model || !sourceUrl) {
       showToast("Brand, model, and URL are required.");
@@ -247,7 +251,15 @@ function CabinetApp() {
       }
     }
 
-    const imagePaths = normalizeImagePaths(existingImagePaths, legacyStoragePaths, uploadedImagePaths);
+    const uploadedPathById = new Map(getFormImageUploadIds(form).map((uploadId, index) => [uploadId, uploadedImagePaths[index] || ""]));
+    const imagePaths = normalizeImagePaths(
+      imageOrder.map((value) => {
+        if (value.startsWith("path:")) return value.slice(5);
+        if (value.startsWith("upload:")) return uploadedPathById.get(value.slice(7)) || "";
+        return "";
+      })
+    );
+    const removedImagePaths = previousImagePaths.filter((path) => !imagePaths.includes(path));
     let signedImageUrls: string[] = [];
 
     if (imagePaths.length && cloudUser) {
@@ -259,7 +271,7 @@ function CabinetApp() {
       }
     }
 
-    const allImageUrls = normalizeImageUrls([...externalImageUrls, ...signedImageUrls], null, makeWatchImage(category, id));
+    const allImageUrls = normalizeImageUrls(signedImageUrls, null, makeWatchImage(category, id));
 
     const watch: Watch = {
       id,
@@ -281,9 +293,19 @@ function CabinetApp() {
 
     try {
       await saveWatch(watch);
+      if (removedImagePaths.length) {
+        void deleteWatchImages(removedImagePaths).catch((error) => {
+          console.warn("Could not delete removed watch images", error);
+        });
+      }
       closeDrawer();
       showToast(existing ? "Watch updated." : "Watch added.");
     } catch (error) {
+      if (uploadedImagePaths.length) {
+        void deleteWatchImages(uploadedImagePaths).catch((deleteError) => {
+          console.warn("Could not clean up unsaved watch images", deleteError);
+        });
+      }
       showToast(error instanceof Error ? error.message : "Watch was not saved.");
     }
   }
@@ -298,7 +320,14 @@ function CabinetApp() {
     setWatches((current) => current.filter((item) => item.id !== id));
 
     try {
-      if (cloudUser) await deleteCloudWatch(id);
+      if (cloudUser) {
+        await deleteCloudWatch(id);
+        if (watch.imagePaths.length) {
+          void deleteWatchImages(watch.imagePaths).catch((error) => {
+            console.warn("Could not delete watch images", error);
+          });
+        }
+      }
       showToast("Watch deleted.");
       return true;
     } catch (error) {
@@ -727,19 +756,7 @@ function WatchRow({
   onPreview: (watch: Watch, imageIndex?: number) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
-  const images = useMemo(() => getWatchImages(watch), [watch]);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const touchStartX = useRef<number | null>(null);
-  const activeImage = images[activeImageIndex] || images[0] || makeWatchImage(watch.category, watch.id);
-  const hasMultipleImages = images.length > 1;
-
-  useEffect(() => {
-    setActiveImageIndex((current) => clampImageIndex(current, images.length));
-  }, [images.length, watch.id]);
-
-  function showImage(step: number) {
-    setActiveImageIndex((current) => getWrappedImageIndex(current, images.length, step));
-  }
+  const primaryImage = getWatchImages(watch)[0] || makeWatchImage(watch.category, watch.id);
 
   return (
     <article className={`watch-row is-${watch.status}`}>
@@ -748,51 +765,18 @@ function WatchRow({
           <button
             className="row-thumb-open"
             type="button"
-            onClick={() => onPreview(watch, activeImageIndex)}
-            onTouchStart={(event) => {
-              if (hasMultipleImages) touchStartX.current = event.changedTouches[0]?.clientX ?? null;
-            }}
-            onTouchEnd={(event) => {
-              if (!hasMultipleImages || touchStartX.current === null) return;
-              const delta = touchStartX.current - (event.changedTouches[0]?.clientX ?? touchStartX.current);
-              touchStartX.current = null;
-              if (Math.abs(delta) < 36) return;
-              event.preventDefault();
-              showImage(delta > 0 ? 1 : -1);
-            }}
+            onClick={() => onPreview(watch, 0)}
             aria-label={`View larger image of ${watch.brand} ${watch.model}`}
           >
             <img
               className="watch-image"
-              src={activeImage}
+              src={primaryImage}
               alt={`${watch.brand} ${watch.model}`}
               onError={(event) => {
                 event.currentTarget.src = makeWatchImage(watch.category, index);
               }}
             />
           </button>
-          {hasMultipleImages ? (
-            <>
-              <button className="row-image-nav is-prev" type="button" onClick={() => showImage(-1)} aria-label="Previous image">
-                <ChevronLeft size={15} />
-              </button>
-              <button className="row-image-nav is-next" type="button" onClick={() => showImage(1)} aria-label="Next image">
-                <ChevronRight size={15} />
-              </button>
-              <div className="row-image-dots" aria-label={`${activeImageIndex + 1} of ${images.length} images`}>
-                {images.map((image, imageIndex) => (
-                  <button
-                    className={`row-image-dot ${activeImageIndex === imageIndex ? "is-active" : ""}`}
-                    type="button"
-                    onClick={() => setActiveImageIndex(imageIndex)}
-                    aria-label={`Show image ${imageIndex + 1}`}
-                    aria-pressed={activeImageIndex === imageIndex}
-                    key={`${image}-${imageIndex}`}
-                  />
-                ))}
-              </div>
-            </>
-          ) : null}
         </div>
       </div>
       <div className="watch-copy">
@@ -1023,9 +1007,7 @@ function WatchDrawer({
     imageUrls: [],
     imagePaths: []
   };
-  const existingImageUrls = editing ? getWatchImages(editing).filter((url) => !url.startsWith("data:") && !isStorageImageUrl(url)) : [];
-  const existingImagePaths = editing ? normalizeImagePaths(editing.imagePaths, getWatchImages(editing).map(getStorageImagePath).filter(Boolean)) : [];
-  const imageSlots = Array.from({ length: maxWatchImages }, (_, index) => existingImageUrls[index] || "");
+  const initialImages = editing ? getStoredImageItems(editing) : [];
 
   return (
     <div
@@ -1132,31 +1114,7 @@ function WatchDrawer({
                 <Images size={15} />
                 Images
               </label>
-              <p className="field-help">Add up to {maxWatchImages} image URLs or upload files to Supabase Storage.</p>
-              <div className="image-url-list">
-                {imageSlots.map((imageUrl, index) => (
-                  <label className="image-url-row" key={index}>
-                    <span>{index + 1}</span>
-                    <input
-                      name="imageUrls"
-                      type="url"
-                      defaultValue={imageUrl}
-                      placeholder={index === 0 ? "Primary image URL" : "Extra image URL"}
-                      aria-label={`Image URL ${index + 1}`}
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="field is-wide">
-              <label htmlFor="imageFiles">
-                <Upload size={15} />
-                Upload images
-              </label>
-              {existingImagePaths.map((path) => (
-                <input type="hidden" name="imagePaths" value={path} key={path} />
-              ))}
-              <input id="imageFiles" name="imageFiles" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple />
+              <ImageManager initialImages={initialImages} />
               <p className="field-help">Uploaded files stay private and are shown through short-lived signed URLs.</p>
             </div>
           </div>
@@ -1171,6 +1129,153 @@ function WatchDrawer({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function ImageManager({ initialImages }: { initialImages: ManagedImage[] }) {
+  const [images, setImages] = useState<ManagedImage[]>(initialImages);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const imagesRef = useRef(images);
+  const remainingSlots = maxWatchImages - images.length;
+
+  useEffect(() => {
+    imagesRef.current = images;
+    const input = fileInputRef.current;
+    if (!input || typeof DataTransfer === "undefined") return;
+
+    const transfer = new DataTransfer();
+    images.forEach((image) => {
+      if (image.kind === "upload") transfer.items.add(image.file);
+    });
+    input.files = transfer.files;
+  }, [images]);
+
+  useEffect(() => {
+    return () => {
+      imagesRef.current.forEach((image) => {
+        if (image.kind === "upload") {
+          pendingImageFiles.delete(image.id);
+          URL.revokeObjectURL(image.url);
+        }
+      });
+    };
+  }, []);
+
+  function addFiles(fileList: FileList | null) {
+    const files = Array.from(fileList || [])
+      .filter((file) => file.size > 0)
+      .slice(0, remainingSlots);
+
+    if (!files.length) return;
+
+    const createdAt = Date.now();
+    const nextImages = files.map((file, index) => {
+      const id = `upload-${createdAt}-${index}-${file.name}-${file.size}`;
+      pendingImageFiles.set(id, file);
+      return {
+        id,
+        kind: "upload" as const,
+        file,
+        url: URL.createObjectURL(file)
+      };
+    });
+
+    setImages((current) => [...current, ...nextImages]);
+  }
+
+  function moveImage(index: number, step: number) {
+    setImages((current) => {
+      const nextIndex = index + step;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next;
+    });
+  }
+
+  function removeImage(index: number) {
+    setImages((current) => {
+      const image = current[index];
+      if (image?.kind === "upload") {
+        pendingImageFiles.delete(image.id);
+        URL.revokeObjectURL(image.url);
+      }
+      return current.filter((_, currentIndex) => currentIndex !== index);
+    });
+  }
+
+  return (
+    <div className="image-manager">
+      {images.map((image) => (
+        <input
+          type="hidden"
+          name="imageOrder"
+          value={image.kind === "stored" ? `path:${image.path}` : `upload:${image.id}`}
+          key={`order-${image.id}`}
+        />
+      ))}
+      {images
+        .filter((image) => image.kind === "upload")
+        .map((image) => (
+          <input type="hidden" name="imageUploadIds" value={image.id} key={`upload-${image.id}`} />
+        ))}
+
+      {images.length ? (
+        <div className="managed-image-list" aria-label="Selected images">
+          {images.map((image, index) => (
+            <div className="managed-image-item" key={image.id}>
+              <img className="managed-image-preview" src={image.url} alt="" />
+              <div className="managed-image-copy">
+                <strong>Image {index + 1}</strong>
+                <span>{image.kind === "stored" ? "Saved" : image.file.name}</span>
+              </div>
+              <div className="managed-image-actions">
+                <button className="image-action" type="button" onClick={() => moveImage(index, -1)} disabled={index === 0} aria-label={`Move image ${index + 1} up`}>
+                  <ChevronUp size={15} />
+                </button>
+                <button
+                  className="image-action"
+                  type="button"
+                  onClick={() => moveImage(index, 1)}
+                  disabled={index === images.length - 1}
+                  aria-label={`Move image ${index + 1} down`}
+                >
+                  <ChevronDown size={15} />
+                </button>
+                <button className="image-action is-danger" type="button" onClick={() => removeImage(index)} aria-label={`Remove image ${index + 1}`}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="managed-image-empty">
+          <Images size={18} />
+          <span>No images added yet</span>
+        </div>
+      )}
+
+      <label className={`upload-target ${remainingSlots <= 0 ? "is-disabled" : ""}`} htmlFor="imageFiles">
+        <Upload size={16} />
+        <span>{remainingSlots > 0 ? `Upload images (${remainingSlots} left)` : "Image limit reached"}</span>
+      </label>
+      <input
+        ref={fileInputRef}
+        className="image-file-input"
+        id="imageFiles"
+        name="imageFiles"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+        multiple
+        disabled={remainingSlots <= 0}
+        onChange={(event) => {
+          addFiles(event.currentTarget.files);
+          event.currentTarget.value = "";
+        }}
+      />
     </div>
   );
 }
@@ -1192,22 +1297,40 @@ function CategoryGlyph({ category, size = 14 }: { category: WatchCategory; size?
   return <Icon size={size} aria-hidden="true" />;
 }
 
-function getFormImageUrls(form: FormData) {
+function getStoredImageItems(watch: Watch): Extract<ManagedImage, { kind: "stored" }>[] {
+  const imageUrlByPath = new Map<string, string>();
+  getWatchImages(watch).forEach((url) => {
+    const path = getStorageImagePath(url);
+    if (path) imageUrlByPath.set(path, url);
+  });
+
+  return normalizeImagePaths(watch.imagePaths, [...imageUrlByPath.keys()]).map((path) => ({
+    id: `stored-${path}`,
+    kind: "stored",
+    path,
+    url: imageUrlByPath.get(path) || makeWatchImage(watch.category, watch.id)
+  }));
+}
+
+function getFormImageOrder(form: FormData) {
   return form
-    .getAll("imageUrls")
-    .map((value) => normalizeUrl(value))
-    .filter(Boolean)
+    .getAll("imageOrder")
+    .filter((value): value is string => typeof value === "string")
+    .filter((value) => value.startsWith("path:") || value.startsWith("upload:"))
     .slice(0, maxWatchImages);
 }
 
-function getFormImagePaths(form: FormData) {
-  return normalizeImagePaths(form.getAll("imagePaths"));
+function getFormImageUploadIds(form: FormData) {
+  return form
+    .getAll("imageUploadIds")
+    .filter((value): value is string => typeof value === "string" && value.startsWith("upload-"))
+    .slice(0, maxWatchImages);
 }
 
 function getFormImageFiles(form: FormData) {
-  return form
-    .getAll("imageFiles")
-    .filter((value): value is File => value instanceof File && value.size > 0)
+  return getFormImageUploadIds(form)
+    .map((uploadId) => pendingImageFiles.get(uploadId))
+    .filter((file): file is File => Boolean(file && file.size > 0))
     .slice(0, maxWatchImages);
 }
 

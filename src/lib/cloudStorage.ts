@@ -89,6 +89,15 @@ export async function uploadWatchImages(user: User, watchId: string, files: File
   return Promise.all(uploads);
 }
 
+export async function deleteWatchImages(paths: string[]) {
+  const client = supabase;
+  const imagePaths = normalizeAllImagePaths(paths);
+  if (!client || !imagePaths.length) return;
+
+  const { error } = await client.storage.from(watchImageBucket).remove(imagePaths);
+  if (error) throw new Error(`Image cleanup failed: ${error.message}`);
+}
+
 export async function getOrCreateShareLink(user: User) {
   if (!supabase) throw new Error("Supabase is not configured.");
 
