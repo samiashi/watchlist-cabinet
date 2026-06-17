@@ -1,12 +1,13 @@
 import { maxWatchImages, type WatchCategory } from "./types";
 
 const categoryThemes: Record<WatchCategory, { bg: string; case: string; dial: string; strap: string; detail: string }> = {
-  Dress: { bg: "#1b1714", case: "#d5b26a", dial: "#f0dfbf", strap: "#17191d", detail: "#5d4930" },
-  Diver: { bg: "#101d24", case: "#7794a1", dial: "#102a34", strap: "#121d24", detail: "#d4e8ef" },
-  Field: { bg: "#151d15", case: "#7c8e73", dial: "#1c261b", strap: "#202718", detail: "#dfe8d4" },
   Chronograph: { bg: "#1a191b", case: "#8d9294", dial: "#23272a", strap: "#111317", detail: "#d66b7e" },
+  Daily: { bg: "#17191d", case: "#7c838a", dial: "#20252a", strap: "#26221f", detail: "#7fb4cb" },
+  Diver: { bg: "#101d24", case: "#7794a1", dial: "#102a34", strap: "#121d24", detail: "#d4e8ef" },
+  Dress: { bg: "#1b1714", case: "#d5b26a", dial: "#f0dfbf", strap: "#17191d", detail: "#5d4930" },
+  Field: { bg: "#151d15", case: "#7c8e73", dial: "#1c261b", strap: "#202718", detail: "#dfe8d4" },
   GMT: { bg: "#131c24", case: "#7895a6", dial: "#17242b", strap: "#121c23", detail: "#d5b26a" },
-  Daily: { bg: "#17191d", case: "#7c838a", dial: "#20252a", strap: "#26221f", detail: "#7fb4cb" }
+  Pilot: { bg: "#161b22", case: "#8a929a", dial: "#101419", strap: "#1f252c", detail: "#d8e2ec" }
 };
 
 export function makeWatchImage(category: WatchCategory, seed: string | number = 0) {

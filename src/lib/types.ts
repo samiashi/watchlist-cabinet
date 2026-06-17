@@ -1,4 +1,4 @@
-export const categories = ["Dress", "Diver", "Field", "Chronograph", "GMT", "Daily"] as const;
+export const categories = ["Chronograph", "Daily", "Diver", "Dress", "Field", "GMT", "Pilot"] as const;
 export const maxWatchImages = 5;
 
 export type WatchCategory = (typeof categories)[number];

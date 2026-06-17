@@ -1291,8 +1291,10 @@ function CategoryGlyph({ category, size = 14 }: { category: WatchCategory; size?
           : category === "Chronograph"
             ? Timer
             : category === "GMT"
-              ? Plane
-              : Sun;
+              ? Clock
+              : category === "Pilot"
+                ? Plane
+                : Sun;
 
   return <Icon size={size} aria-hidden="true" />;
 }
