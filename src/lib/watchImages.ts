@@ -7,7 +7,8 @@ const categoryThemes: Record<WatchCategory, { bg: string; case: string; dial: st
   Dress: { bg: "#1b1714", case: "#d5b26a", dial: "#f0dfbf", strap: "#17191d", detail: "#5d4930" },
   Field: { bg: "#151d15", case: "#7c8e73", dial: "#1c261b", strap: "#202718", detail: "#dfe8d4" },
   GMT: { bg: "#131c24", case: "#7895a6", dial: "#17242b", strap: "#121c23", detail: "#d5b26a" },
-  Pilot: { bg: "#161b22", case: "#8a929a", dial: "#101419", strap: "#1f252c", detail: "#d8e2ec" }
+  Pilot: { bg: "#161b22", case: "#8a929a", dial: "#101419", strap: "#1f252c", detail: "#d8e2ec" },
+  Vintage: { bg: "#1d1914", case: "#b89462", dial: "#efe0c1", strap: "#241b16", detail: "#7f5d3b" }
 };
 
 export function makeWatchImage(category: WatchCategory, seed: string | number = 0) {

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   ArrowDownUp,
+  Archive,
   BadgeCheck,
   Banknote,
   Check,
@@ -1297,6 +1298,8 @@ function CategoryGlyph({ category, size = 14 }: { category: WatchCategory; size?
               ? Clock
               : category === "Pilot"
                 ? Plane
+                : category === "Vintage"
+                  ? Archive
                 : Sun;
 
   return <Icon size={size} aria-hidden="true" />;

@@ -1,4 +1,4 @@
-export const categories = ["Chronograph", "Daily", "Diver", "Dress", "Field", "GMT", "Pilot"] as const;
+export const categories = ["Chronograph", "Daily", "Diver", "Dress", "Field", "GMT", "Pilot", "Vintage"] as const;
 export const movements = ["Automatic", "Manual", "Quartz"] as const;
 export const maxWatchImages = 5;
 

@@ -5,7 +5,7 @@ create table if not exists public.watches (
   user_id uuid not null references auth.users(id) on delete cascade,
   brand text not null,
   model text not null,
-  category text not null check (category in ('Chronograph', 'Daily', 'Diver', 'Dress', 'Field', 'GMT', 'Pilot')),
+  category text not null check (category in ('Chronograph', 'Daily', 'Diver', 'Dress', 'Field', 'GMT', 'Pilot', 'Vintage')),
   status text not null check (status in ('owned', 'wishlist')),
   movement text not null default 'Automatic' check (movement in ('Automatic', 'Manual', 'Quartz')),
   case_size_mm numeric(4, 1),
@@ -41,7 +41,7 @@ drop constraint if exists watches_category_check;
 
 alter table public.watches
 add constraint watches_category_check
-check (category in ('Chronograph', 'Daily', 'Diver', 'Dress', 'Field', 'GMT', 'Pilot'));
+check (category in ('Chronograph', 'Daily', 'Diver', 'Dress', 'Field', 'GMT', 'Pilot', 'Vintage'));
 
 alter table public.watches
 drop constraint if exists watches_movement_check;
