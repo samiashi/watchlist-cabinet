@@ -1,5 +1,5 @@
 import { sampleWatches } from "./sampleData";
-import { categories, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus, type WatchTab, type WatchSort } from "./types";
+import { categories, movements, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus, type WatchTab, type WatchSort } from "./types";
 import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
 
 const STORAGE_KEY = "watchlist-cabinet-state-v4";
@@ -73,7 +73,7 @@ function normalizeStatus(value: unknown): WatchStatus {
 }
 
 function normalizeMovement(value: unknown): WatchMovement {
-  return value === "Quartz" ? "Quartz" : "Automatic";
+  return movements.includes(value as WatchMovement) ? (value as WatchMovement) : "Automatic";
 }
 
 function normalizeTab(value: unknown): WatchTab {

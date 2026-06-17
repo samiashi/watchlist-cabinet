@@ -39,7 +39,7 @@ import { deleteCloudWatch, deleteWatchImages, getOrCreateShareLink, loadCloudSna
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { categories, maxWatchImages, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchStatus } from "./lib/types";
+import { categories, maxWatchImages, movements, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./lib/types";
 import { getStorageImagePath, getWatchImages, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./lib/watchImages";
 
 const emptyFilters: CabinetFilters = { tab: "all", query: "", sort: "relevance" };
@@ -1082,8 +1082,11 @@ function WatchDrawer({
                 Movement
               </label>
               <select id="movement" name="movement" defaultValue={watch.movement}>
-                <option value="Automatic">Automatic</option>
-                <option value="Quartz">Quartz</option>
+                {movements.map((movement) => (
+                  <option value={movement} key={movement}>
+                    {movement}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="field">
@@ -1398,7 +1401,8 @@ function formatCaseSize(value: number) {
 }
 
 function normalizeMovement(value: FormDataEntryValue | string | null | undefined) {
-  return String(value) === "Quartz" ? "Quartz" : "Automatic";
+  const movement = String(value || "").trim();
+  return movements.includes(movement as WatchMovement) ? (movement as WatchMovement) : "Automatic";
 }
 
 function getWatchRelevance(watch: Watch, query: string) {

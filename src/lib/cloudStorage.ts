@@ -1,6 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase, supabaseUrl } from "./supabase";
-import { maxWatchImages, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./types";
+import { maxWatchImages, movements, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./types";
 import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeAllImagePaths, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
 
 const watchImageBucket = "watch-images";
@@ -147,7 +147,7 @@ function fromWatchRow(row: WatchRow, index: number, options: WatchRowOptions = {
     model: row.model,
     category: row.category,
     status: row.status,
-    movement: row.movement === "Quartz" ? "Quartz" : "Automatic",
+    movement: movements.includes(row.movement as WatchMovement) ? (row.movement as WatchMovement) : "Automatic",
     caseSize: Number(row.case_size_mm) || 0,
     price: Number(row.price) || 0,
     referenceNumber: row.reference_number || "",

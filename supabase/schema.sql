@@ -7,7 +7,7 @@ create table if not exists public.watches (
   model text not null,
   category text not null check (category in ('Chronograph', 'Daily', 'Diver', 'Dress', 'Field', 'GMT', 'Pilot')),
   status text not null check (status in ('owned', 'wishlist')),
-  movement text not null default 'Automatic' check (movement in ('Quartz', 'Automatic')),
+  movement text not null default 'Automatic' check (movement in ('Automatic', 'Manual', 'Quartz')),
   case_size_mm numeric(4, 1),
   price numeric(12, 2) not null default 0,
   reference_number text,
@@ -42,6 +42,13 @@ drop constraint if exists watches_category_check;
 alter table public.watches
 add constraint watches_category_check
 check (category in ('Chronograph', 'Daily', 'Diver', 'Dress', 'Field', 'GMT', 'Pilot'));
+
+alter table public.watches
+drop constraint if exists watches_movement_check;
+
+alter table public.watches
+add constraint watches_movement_check
+check (movement in ('Automatic', 'Manual', 'Quartz'));
 
 update public.watches
 set image_urls = array[image_url]
@@ -86,7 +93,7 @@ begin
       and conrelid = 'public.watches'::regclass
   ) then
     alter table public.watches
-    add constraint watches_movement_check check (movement in ('Quartz', 'Automatic'));
+    add constraint watches_movement_check check (movement in ('Automatic', 'Manual', 'Quartz'));
   end if;
 end $$;
 

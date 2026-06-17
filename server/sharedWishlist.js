@@ -220,7 +220,7 @@ function toSharedWatch(row, signedUrlMap) {
     model: normalizeText(row.model),
     category: normalizeText(row.category),
     status: "wishlist",
-    movement: row.movement === "Quartz" ? "Quartz" : "Automatic",
+    movement: normalizeMovement(row.movement),
     case_size_mm: Number(row.case_size_mm) || 0,
     price: Number(row.price) || 0,
     reference_number: normalizeText(row.reference_number),
@@ -347,6 +347,11 @@ function toAbsoluteStorageUrl(value, baseUrl) {
 
 function normalizeText(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function normalizeMovement(value) {
+  const movement = normalizeText(value);
+  return movement === "Manual" || movement === "Quartz" ? movement : "Automatic";
 }
 
 function renderErrorHtml(statusCode, message) {
