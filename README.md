@@ -98,7 +98,7 @@ Then enable Google as the only Supabase Auth provider and allow-list the deploye
 
 ## Deploy
 
-Deploy the private GitHub repo to Vercel and add the same env vars in the Vercel project settings. The included API route signs private storage images for `/share/:token`, while `vercel.json` rewrites direct app routes back to the SPA.
+Deploy the private GitHub repo to Vercel and add the same env vars in the Vercel project settings. Public wishlist links are served as no-JavaScript HTML at `/share/:token`, with Markdown at `/share/:token.md` and JSON at `/share/:token.json`; the API route signs private storage images for those shared views.
 
 ## Scripts
 

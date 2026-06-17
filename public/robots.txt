@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /share/
+Allow: /llms.txt
+Disallow: /api/

@@ -1,0 +1,11 @@
+# Cabinet
+
+Cabinet is a private watch collection app.
+
+Shared wishlist links are public to anyone with the URL and are available in three formats:
+
+- Human-readable HTML: `/share/{token}`
+- Agent-friendly Markdown: `/share/{token}.md`
+- Machine-readable JSON: `/share/{token}.json`
+
+Shared wishlist pages include watch brand, model, price in AED, category, movement, case size, source URL, reference number when available, and signed image URLs when available.
