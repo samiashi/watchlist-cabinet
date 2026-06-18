@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/share/:token.txt",
+      "destination": "/api/shared-wishlist-txt?token=:token"
+    },
+    {
       "source": "/share/:token.md",
       "destination": "/api/shared-wishlist-md?token=:token"
     },

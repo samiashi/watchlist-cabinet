@@ -6,7 +6,9 @@ import {
   getRequestBaseUrl,
   loadSharedWishlist,
   renderCompactWishlistText,
+  renderMetaWishlistSummary,
   renderSharedWishlistMarkdown,
+  renderSharedWishlistText,
   sendSharedWishlistError
 } from "../server/sharedWishlist.js";
 
@@ -30,6 +32,12 @@ export default async function handler(request, response) {
       return;
     }
 
+    if (prefersText(request)) {
+      response.setHeader("Content-Type", "text/plain; charset=utf-8");
+      response.status(200).send(renderSharedWishlistText(data, baseUrl));
+      return;
+    }
+
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.status(200).send(renderSharedWishlistHtml(data, baseUrl));
   } catch (error) {
@@ -39,6 +47,7 @@ export default async function handler(request, response) {
 
 function renderSharedWishlistHtml(data, baseUrl) {
   const shareUrl = `${baseUrl}/share/${encodeURIComponent(data.token)}`;
+  const textUrl = `${shareUrl}.txt`;
   const markdownUrl = `${shareUrl}.md`;
   const jsonUrl = `${shareUrl}.json`;
   const total = formatCurrency(data.summary.wishlist_total);
@@ -46,6 +55,7 @@ function renderSharedWishlistHtml(data, baseUrl) {
   const description = `${count} on Sami's watch wishlist, totaling ${total}.`;
   const imageUrl = data.watches.find((watch) => watch.image_url)?.image_url || "";
   const textSummary = renderCompactWishlistText(data);
+  const metaSummary = renderMetaWishlistSummary(data);
   const jsonLd = renderJsonLd(data, shareUrl);
 
   return `<!doctype html>
@@ -57,12 +67,14 @@ function renderSharedWishlistHtml(data, baseUrl) {
     <meta name="theme-color" content="#050506">
     <title>Watch Wishlist - Cabinet</title>
     <meta name="description" content="${escapeHtml(description)}">
+    <meta name="cabinet-wishlist-summary" content="${escapeHtml(metaSummary)}">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Watch Wishlist - Cabinet">
     <meta property="og:description" content="${escapeHtml(description)}">
     <meta property="og:url" content="${escapeHtml(shareUrl)}">
     ${imageUrl ? `<meta property="og:image" content="${escapeHtml(imageUrl)}">` : ""}
     <link rel="canonical" href="${escapeHtml(shareUrl)}">
+    <link rel="alternate" type="text/plain" href="${escapeHtml(textUrl)}">
     <link rel="alternate" type="text/markdown" href="${escapeHtml(markdownUrl)}">
     <link rel="alternate" type="application/json" href="${escapeHtml(jsonUrl)}">
     <link rel="stylesheet" href="/share.css">
@@ -74,6 +86,7 @@ function renderSharedWishlistHtml(data, baseUrl) {
           <p class="eyebrow">Shared from Cabinet</p>
           <h1>Watch Wishlist</h1>
           <div class="alternate-links" aria-label="Alternate formats">
+            <a class="pill" href="${escapeHtml(textUrl)}">Text</a>
             <a class="pill" href="${escapeHtml(markdownUrl)}">Markdown</a>
             <a class="pill" href="${escapeHtml(jsonUrl)}">JSON</a>
           </div>
@@ -168,7 +181,12 @@ function renderJsonLd(data, shareUrl) {
 
 function prefersMarkdown(request) {
   const accept = String(request.headers.accept || "").toLowerCase();
-  return accept.includes("text/markdown") || (accept.includes("text/plain") && !accept.includes("text/html"));
+  return accept.includes("text/markdown");
+}
+
+function prefersText(request) {
+  const accept = String(request.headers.accept || "").toLowerCase();
+  return accept.includes("text/plain") && !accept.includes("text/html");
 }
 
 function renderEmptyState() {

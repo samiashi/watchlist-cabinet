@@ -145,6 +145,7 @@ export function escapeMarkdown(value) {
 
 export function renderSharedWishlistMarkdown(data, baseUrl, options = {}) {
   const shareUrl = `${baseUrl}/share/${encodeURIComponent(data.token)}`;
+  const textUrl = `${shareUrl}.txt`;
   const jsonUrl = `${shareUrl}.json`;
   const lines = [
     "# Watch Wishlist",
@@ -153,6 +154,7 @@ export function renderSharedWishlistMarkdown(data, baseUrl, options = {}) {
     "",
     `- Wishlist total: ${escapeMarkdown(formatCurrency(data.summary.wishlist_total))}`,
     `- Saved watches: ${escapeMarkdown(formatWatchCount(data.summary.count))}`,
+    `- Text: <${textUrl}>`,
     `- JSON: <${jsonUrl}>`,
     ""
   ];
@@ -207,6 +209,27 @@ export function renderCompactWishlistText(data) {
   });
 
   return lines.join("\n");
+}
+
+export function renderSharedWishlistText(data, baseUrl) {
+  const shareUrl = `${baseUrl}/share/${encodeURIComponent(data.token)}`;
+  return [
+    renderCompactWishlistText(data),
+    "",
+    `HTML: ${shareUrl}`,
+    `Text: ${shareUrl}.txt`,
+    `Markdown: ${shareUrl}.md`,
+    `JSON: ${shareUrl}.json`
+  ].join("\n");
+}
+
+export function renderMetaWishlistSummary(data) {
+  const watchTitles = data.watches.map((watch, index) => {
+    const title = `${watch.brand} ${watch.model}`.trim() || "Untitled watch";
+    return `${index + 1}. ${title} (${formatCurrency(watch.price)}, ${watch.category || "uncategorized"}, ${watch.movement || "movement not listed"})`;
+  });
+
+  return `${formatWatchCount(data.summary.count)} totaling ${formatCurrency(data.summary.wishlist_total)}: ${watchTitles.join("; ")}`;
 }
 
 function toSharedWatch(row, signedUrlMap) {
