@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   ArrowDownUp,
@@ -12,6 +13,7 @@ import {
   ChevronUp,
   Clock,
   Gem,
+  GripVertical,
   Grid3X3,
   Heart,
   Hash,
@@ -36,7 +38,18 @@ import {
   Waves,
   X
 } from "lucide-react";
-import { deleteCloudWatch, deleteWatchImages, getOrCreateShareLink, loadCloudSnapshot, loadSharedWishlist, signWatchImagePaths, uploadWatchImages, upsertCloudWatch } from "./lib/cloudStorage";
+import {
+  deleteCloudWatch,
+  deleteWatchImages,
+  getDisplayOrderForIndex,
+  getOrCreateShareLink,
+  loadCloudSnapshot,
+  loadSharedWishlist,
+  signWatchImagePaths,
+  updateCloudWatchOrder,
+  uploadWatchImages,
+  upsertCloudWatch
+} from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
@@ -211,6 +224,25 @@ function CabinetApp() {
     }
   }
 
+  async function reorderWatches(orderedVisibleIds: string[]) {
+    if (filters.sort !== "relevance" || filters.query.trim()) return;
+
+    const nextWatches = applyVisibleWatchOrder(watches, orderedVisibleIds);
+    if (areWatchOrdersEqual(watches, nextWatches)) return;
+
+    const previousWatches = watches;
+    setWatches(nextWatches);
+
+    if (!cloudUser) return;
+
+    try {
+      await updateCloudWatchOrder(cloudUser, nextWatches);
+    } catch (error) {
+      setWatches(previousWatches);
+      showToast(error instanceof Error ? error.message : "Watch order was not saved.");
+    }
+  }
+
   async function handleWatchFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -288,6 +320,7 @@ function CabinetApp() {
       imageUrl: allImageUrls[0],
       imageUrls: allImageUrls,
       imagePaths,
+      displayOrder: existing?.displayOrder ?? getNewWatchDisplayOrder(watches),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -362,8 +395,10 @@ function CabinetApp() {
           <Board
             watches={filteredWatches}
             filters={filters}
+            canReorder={filters.sort === "relevance" && !filters.query.trim()}
             onFilterChange={updateFilters}
             onPreview={(watch, imageIndex = 0) => setPreviewWatch({ watch, imageIndex })}
+            onReorder={reorderWatches}
           />
         </div>
       </main>
@@ -698,7 +733,7 @@ function SortSelect({ sort, onChange }: { sort: CabinetFilters["sort"]; onChange
       <ArrowDownUp size={14} aria-hidden="true" />
       <span className="sr-only">Sort watches</span>
       <select value={sort} onChange={(event) => onChange(event.target.value as CabinetFilters["sort"])} aria-label="Sort watches">
-        <option value="relevance">Relevance</option>
+        <option value="relevance">Custom order</option>
         <option value="price-desc">Price high to low</option>
         <option value="price-asc">Price low to high</option>
       </select>
@@ -709,20 +744,133 @@ function SortSelect({ sort, onChange }: { sort: CabinetFilters["sort"]; onChange
 function Board({
   watches,
   filters,
+  canReorder,
   onFilterChange,
-  onPreview
+  onPreview,
+  onReorder
 }: {
   watches: Watch[];
   filters: CabinetFilters;
+  canReorder: boolean;
   onFilterChange: (filters: Partial<CabinetFilters>) => void;
   onPreview: (watch: Watch, imageIndex?: number) => void;
+  onReorder: (orderedIds: string[]) => void;
 }) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [draftOrder, setDraftOrder] = useState<string[]>([]);
+  const draggingIdRef = useRef<string | null>(null);
+  const draftOrderRef = useRef<string[]>([]);
+  const visibleOrderRef = useRef<string[]>([]);
+  const visibleOrder = useMemo(() => watches.map((watch) => watch.id), [watches]);
+  const renderedOrder = draggingId ? draftOrder : visibleOrder;
+  const renderedWatches = useMemo(() => {
+    const byId = new Map(watches.map((watch) => [watch.id, watch]));
+    return renderedOrder.map((id) => byId.get(id)).filter((watch): watch is Watch => Boolean(watch));
+  }, [renderedOrder, watches]);
+
+  useEffect(() => {
+    draggingIdRef.current = draggingId;
+  }, [draggingId]);
+
+  useEffect(() => {
+    draftOrderRef.current = draftOrder;
+  }, [draftOrder]);
+
+  useEffect(() => {
+    visibleOrderRef.current = visibleOrder;
+    if (!draggingId) setDraftOrder(visibleOrder);
+  }, [draggingId, visibleOrder]);
+
+  useEffect(() => {
+    if (!draggingId) return;
+
+    function move(event: PointerEvent | MouseEvent | TouchEvent) {
+      const point = getClientPoint(event);
+      if (!point) return;
+      if ("cancelable" in event && event.cancelable) event.preventDefault();
+      updateReorderAtPoint(point.x, point.y);
+    }
+
+    function finish() {
+      finishReorder();
+    }
+
+    function cancel() {
+      cancelReorder();
+    }
+
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("mousemove", move, { passive: false });
+    window.addEventListener("mouseup", finish);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", finish);
+    window.addEventListener("touchcancel", cancel);
+
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", finish);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", finish);
+      window.removeEventListener("touchcancel", cancel);
+    };
+  }, [draggingId]);
+
+  function startReorder(watchId: string, event: ReactPointerEvent<HTMLButtonElement> | ReactMouseEvent<HTMLButtonElement>) {
+    if (!canReorder) return;
+    if (draggingIdRef.current) return;
+    event.preventDefault();
+    if ("pointerId" in event) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    draggingIdRef.current = watchId;
+    draftOrderRef.current = visibleOrder;
+    setDraggingId(watchId);
+    setDraftOrder(visibleOrder);
+  }
+
+  function updateReorderAtPoint(clientX: number, clientY: number) {
+    const currentDraggingId = draggingIdRef.current;
+    if (!currentDraggingId) return;
+    const target = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-watch-id]");
+    const targetId = target?.dataset.watchId;
+    if (!targetId || targetId === currentDraggingId) return;
+
+    setDraftOrder((current) => {
+      const next = moveIdBefore(current, currentDraggingId, targetId);
+      draftOrderRef.current = next;
+      return next;
+    });
+  }
+
+  function finishReorder() {
+    if (!draggingIdRef.current) return;
+    const nextOrder = draftOrderRef.current.length ? draftOrderRef.current : visibleOrderRef.current;
+    draggingIdRef.current = null;
+    draftOrderRef.current = [];
+    setDraggingId(null);
+    setDraftOrder([]);
+    onReorder(nextOrder);
+  }
+
+  function cancelReorder() {
+    if (!draggingIdRef.current) return;
+    draggingIdRef.current = null;
+    draftOrderRef.current = [];
+    setDraggingId(null);
+    setDraftOrder([]);
+  }
+
   return (
     <section className="board" aria-label="Watch collection">
       <div className="board-header">
         <div>
           <h2 className="section-title">Collection</h2>
-          <p className="section-meta">{formatWatchCount(watches.length)} saved</p>
+          <p className="section-meta">{canReorder ? "Drag cards to set the default order" : `${formatWatchCount(watches.length)} saved`}</p>
         </div>
         <div className="collection-controls">
           <StatusTabs tab={filters.tab} onChange={(tab) => onFilterChange({ tab })} />
@@ -731,12 +879,15 @@ function Board({
       </div>
       {watches.length ? (
         <div className="watch-grid" aria-label="Watches">
-          {watches.map((watch, index) => (
+          {renderedWatches.map((watch, index) => (
             <WatchRow
               watch={watch}
               index={index}
               key={watch.id}
               onPreview={onPreview}
+              canReorder={canReorder}
+              isDragging={draggingId === watch.id}
+              onReorderStart={startReorder}
             />
           ))}
         </div>
@@ -750,17 +901,34 @@ function Board({
 function WatchRow({
   watch,
   index,
-  onPreview
+  onPreview,
+  canReorder = false,
+  isDragging = false,
+  onReorderStart
 }: {
   watch: Watch;
   index: number;
   onPreview: (watch: Watch, imageIndex?: number) => void;
+  canReorder?: boolean;
+  isDragging?: boolean;
+  onReorderStart?: (watchId: string, event: ReactPointerEvent<HTMLButtonElement> | ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
   const primaryImage = getWatchImages(watch)[0] || makeWatchImage(watch.category, watch.id);
 
   return (
-    <article className={`watch-row is-${watch.status}`}>
+    <article className={`watch-row is-${watch.status} ${isDragging ? "is-dragging" : ""}`} data-watch-id={watch.id}>
+      {canReorder ? (
+        <button
+          className="reorder-handle"
+          type="button"
+          aria-label={`Reorder ${watch.brand} ${watch.model}`}
+          onPointerDown={(event) => onReorderStart?.(watch.id, event)}
+          onMouseDown={(event) => onReorderStart?.(watch.id, event)}
+        >
+          <GripVertical size={15} />
+        </button>
+      ) : null}
       <div className="shelf-visual">
         <div className="row-thumb">
           <button
@@ -1006,7 +1174,8 @@ function WatchDrawer({
     sourceUrl: "",
     imageUrl: "",
     imageUrls: [],
-    imagePaths: []
+    imagePaths: [],
+    displayOrder: 1000
   };
   const initialImages = editing ? getStoredImageItems(editing) : [];
 
@@ -1352,6 +1521,62 @@ function getWrappedImageIndex(current: number, total: number, step: number) {
   return (clampImageIndex(current, total) + step + total) % total;
 }
 
+function applyVisibleWatchOrder(watches: Watch[], orderedVisibleIds: string[]) {
+  const orderedIds = orderedVisibleIds.filter(Boolean);
+  if (orderedIds.length < 2) return watches;
+
+  const baseOrder = sortWatchesByCustomOrder(watches);
+  const byId = new Map(baseOrder.map((watch) => [watch.id, watch]));
+  const reorderedVisibleWatches = orderedIds.map((id) => byId.get(id)).filter((watch): watch is Watch => Boolean(watch));
+  if (reorderedVisibleWatches.length !== orderedIds.length) return watches;
+
+  const reorderedIdSet = new Set(orderedIds);
+  let visibleIndex = 0;
+  const nextWatches = baseOrder.map((watch) => (reorderedIdSet.has(watch.id) ? reorderedVisibleWatches[visibleIndex++] : watch));
+  return normalizeWatchDisplayOrders(nextWatches);
+}
+
+function normalizeWatchDisplayOrders(watches: Watch[]) {
+  return watches.map((watch, index) => ({
+    ...watch,
+    displayOrder: getDisplayOrderForIndex(index)
+  }));
+}
+
+function getNewWatchDisplayOrder(watches: Watch[]) {
+  if (!watches.length) return getDisplayOrderForIndex(0);
+  const orders = watches.map((watch) => Number(watch.displayOrder)).filter(Number.isFinite);
+  if (!orders.length) return getDisplayOrderForIndex(0);
+  return Math.min(...orders) - 1000;
+}
+
+function areWatchOrdersEqual(left: Watch[], right: Watch[]) {
+  if (left.length !== right.length) return false;
+  const leftOrder = sortWatchesByCustomOrder(left).map((watch) => watch.id);
+  const rightOrder = sortWatchesByCustomOrder(right).map((watch) => watch.id);
+  return leftOrder.every((id, index) => id === rightOrder[index]);
+}
+
+function moveIdBefore(ids: string[], movingId: string, targetId: string) {
+  const fromIndex = ids.indexOf(movingId);
+  const targetIndex = ids.indexOf(targetId);
+  if (fromIndex < 0 || targetIndex < 0 || fromIndex === targetIndex) return ids;
+
+  const next = [...ids];
+  const [item] = next.splice(fromIndex, 1);
+  next.splice(targetIndex, 0, item);
+  return next;
+}
+
+function getClientPoint(event: PointerEvent | MouseEvent | TouchEvent) {
+  if ("clientX" in event && "clientY" in event) {
+    return { x: event.clientX, y: event.clientY };
+  }
+
+  const touch = event.touches[0] || event.changedTouches[0];
+  return touch ? { x: touch.clientX, y: touch.clientY } : null;
+}
+
 function getSummary(watches: Watch[]): CabinetSummary {
   const owned = watches.filter((watch) => watch.status === "owned");
   const wishlist = watches.filter((watch) => watch.status === "wishlist");
@@ -1383,18 +1608,28 @@ function getFilteredWatches(watches: Watch[], filters: CabinetFilters) {
 
 function compareWatches(a: Watch, b: Watch, sort: CabinetFilters["sort"], query: string) {
   if (sort === "price-desc") {
-    return (Number(b.price) || 0) - (Number(a.price) || 0) || compareByRecency(a, b);
+    return (Number(b.price) || 0) - (Number(a.price) || 0) || compareByCustomOrder(a, b);
   }
 
   if (sort === "price-asc") {
-    return (Number(a.price) || 0) - (Number(b.price) || 0) || compareByRecency(a, b);
+    return (Number(a.price) || 0) - (Number(b.price) || 0) || compareByCustomOrder(a, b);
   }
 
-  return getWatchRelevance(b, query) - getWatchRelevance(a, query) || compareByRecency(a, b);
+  return getWatchRelevance(b, query) - getWatchRelevance(a, query) || compareByCustomOrder(a, b);
 }
 
-function compareByRecency(a: Watch, b: Watch) {
-  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+function sortWatchesByCustomOrder(watches: Watch[]) {
+  return [...watches].sort(compareByCustomOrder);
+}
+
+function compareByCustomOrder(a: Watch, b: Watch) {
+  const orderDifference = normalizeWatchDisplayOrder(a) - normalizeWatchDisplayOrder(b);
+  return orderDifference || new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+}
+
+function normalizeWatchDisplayOrder(watch: Watch) {
+  const order = Number(watch.displayOrder);
+  return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
 }
 
 function formatCaseSize(value: number) {

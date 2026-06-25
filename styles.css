@@ -487,7 +487,7 @@ svg {
 }
 
 .sort-control select {
-  width: 150px;
+  width: 158px;
   height: 100%;
   border: 0;
   border-radius: 999px;
@@ -579,6 +579,45 @@ svg {
   background:
     linear-gradient(180deg, rgba(10, 132, 255, 0.1), rgba(255, 255, 255, 0.018)),
     rgba(20, 22, 27, 0.9);
+}
+
+.watch-row.is-dragging {
+  z-index: 3;
+  border-color: rgba(10, 132, 255, 0.78);
+  background:
+    linear-gradient(180deg, rgba(10, 132, 255, 0.16), rgba(255, 255, 255, 0.025)),
+    rgba(20, 22, 27, 0.96);
+  transform: scale(0.985);
+}
+
+.reorder-handle {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(18, 18, 20, 0.72);
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+  cursor: grab;
+  touch-action: none;
+}
+
+.reorder-handle:active {
+  cursor: grabbing;
+}
+
+.reorder-handle:hover,
+.reorder-handle:focus-visible {
+  border-color: rgba(10, 132, 255, 0.58);
+  color: #ffffff;
 }
 
 .shelf-visual {
@@ -1477,12 +1516,12 @@ svg {
   }
 
   .sort-control {
-    flex: 0 0 116px;
+    flex: 0 0 126px;
     height: 38px;
   }
 
   .sort-control select {
-    width: 116px;
+    width: 126px;
     padding-left: 27px;
     padding-right: 20px;
     font-size: 10.5px;
@@ -1543,6 +1582,13 @@ svg {
   .watch-row {
     padding: 9px;
     gap: 10px;
+  }
+
+  .reorder-handle {
+    top: 14px;
+    right: 14px;
+    width: 30px;
+    height: 30px;
   }
 
   .watch-copy {
@@ -1772,10 +1818,10 @@ svg {
   }
 
   .sort-control {
-    flex-basis: 112px;
+    flex-basis: 122px;
   }
 
   .sort-control select {
-    width: 112px;
+    width: 122px;
   }
 }

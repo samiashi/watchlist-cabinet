@@ -15,6 +15,7 @@ create table if not exists public.watches (
   image_url text,
   image_urls text[] not null default '{}',
   image_paths text[] not null default '{}',
+  display_order integer not null default 1000,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint watches_image_urls_count check (cardinality(image_urls) <= 5),
@@ -35,6 +36,27 @@ add column if not exists image_urls text[] not null default '{}';
 
 alter table public.watches
 add column if not exists image_paths text[] not null default '{}';
+
+alter table public.watches
+add column if not exists display_order integer;
+
+with ordered_watches as (
+  select
+    id,
+    row_number() over (partition by user_id order by created_at desc, id) * 1000 as next_display_order
+  from public.watches
+  where display_order is null
+)
+update public.watches
+set display_order = ordered_watches.next_display_order
+from ordered_watches
+where public.watches.id = ordered_watches.id;
+
+alter table public.watches
+alter column display_order set default 1000;
+
+alter table public.watches
+alter column display_order set not null;
 
 alter table public.watches
 drop constraint if exists watches_category_check;
@@ -179,6 +201,7 @@ using (
 create index if not exists watches_user_created_idx on public.watches (user_id, created_at desc);
 create index if not exists watches_user_status_idx on public.watches (user_id, status);
 create index if not exists watches_user_category_idx on public.watches (user_id, category);
+create index if not exists watches_user_display_order_idx on public.watches (user_id, display_order, created_at desc);
 
 alter table public.watches enable row level security;
 
@@ -245,6 +268,8 @@ using ((select auth.uid()) = user_id);
 
 grant select, insert, update, delete on public.watch_share_links to authenticated;
 
+drop function if exists public.get_shared_wishlist(uuid);
+
 create or replace function public.get_shared_wishlist(share_token uuid)
 returns table (
   id uuid,
@@ -259,6 +284,7 @@ returns table (
   source_url text,
   image_url text,
   image_urls text[],
+  display_order integer,
   created_at timestamptz,
   updated_at timestamptz
 )
@@ -280,13 +306,14 @@ as $$
     watches.source_url,
     watches.image_url,
     watches.image_urls,
+    watches.display_order,
     watches.created_at,
     watches.updated_at
   from public.watch_share_links
   join public.watches on watches.user_id = watch_share_links.user_id
   where watch_share_links.token = share_token
     and watches.status = 'wishlist'
-  order by watches.created_at desc;
+  order by watches.display_order asc, watches.created_at desc;
 $$;
 
 revoke all on function public.get_shared_wishlist(uuid) from public;

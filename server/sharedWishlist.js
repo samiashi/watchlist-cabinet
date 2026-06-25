@@ -42,12 +42,22 @@ export async function loadSharedWishlist(token) {
     throw new SharedWishlistError(404, "This wishlist link is not available.");
   }
 
-  const watchesResult = await supabase
+  let watchesResult = await supabase
     .from("watches")
-    .select("id,brand,model,category,status,movement,case_size_mm,price,reference_number,source_url,image_url,image_urls,image_paths,created_at,updated_at")
+    .select("id,brand,model,category,status,movement,case_size_mm,price,reference_number,source_url,image_url,image_urls,image_paths,display_order,created_at,updated_at")
     .eq("user_id", shareResult.data.user_id)
     .eq("status", "wishlist")
+    .order("display_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
+
+  if (isMissingDisplayOrderError(watchesResult.error)) {
+    watchesResult = await supabase
+      .from("watches")
+      .select("id,brand,model,category,status,movement,case_size_mm,price,reference_number,source_url,image_url,image_urls,image_paths,created_at,updated_at")
+      .eq("user_id", shareResult.data.user_id)
+      .eq("status", "wishlist")
+      .order("created_at", { ascending: false });
+  }
 
   if (watchesResult.error) {
     throw new SharedWishlistError(500, "Shared wishlist could not be loaded.");
@@ -251,9 +261,15 @@ function toSharedWatch(row, signedUrlMap) {
     image_url: imageUrls[0] || null,
     image_urls: imageUrls,
     image_paths: [],
+    display_order: Number(row.display_order) || 0,
     created_at: row.created_at,
     updated_at: row.updated_at
   };
+}
+
+function isMissingDisplayOrderError(error) {
+  if (!error || typeof error !== "object") return false;
+  return error.code === "42703" || String(error.message || "").toLowerCase().includes("display_order");
 }
 
 async function getSignedImageUrlMap(supabase, supabaseUrl, rows) {

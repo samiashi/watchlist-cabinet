@@ -59,6 +59,7 @@ function normalizeStoredWatch(watch: Partial<Watch>, index: number): Watch {
     imageUrl: imageUrls[0],
     imageUrls,
     imagePaths,
+    displayOrder: normalizeDisplayOrder(watch.displayOrder, index),
     createdAt: watch.createdAt || new Date().toISOString(),
     updatedAt: watch.updatedAt
   };
@@ -82,4 +83,9 @@ function normalizeTab(value: unknown): WatchTab {
 
 function normalizeSort(value: unknown): WatchSort {
   return value === "price-desc" || value === "price-asc" || value === "relevance" ? value : "relevance";
+}
+
+function normalizeDisplayOrder(value: unknown, index: number) {
+  const order = Number(value);
+  return Number.isFinite(order) ? order : (index + 1) * 1000;
 }

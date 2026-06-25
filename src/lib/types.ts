@@ -22,6 +22,7 @@ export interface Watch {
   imageUrl: string;
   imageUrls: string[];
   imagePaths: string[];
+  displayOrder: number;
   createdAt: string;
   updatedAt?: string;
 }

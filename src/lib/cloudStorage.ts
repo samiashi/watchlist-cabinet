@@ -21,6 +21,7 @@ interface WatchRow {
   image_url: string | null;
   image_urls?: string[] | null;
   image_paths?: string[] | null;
+  display_order?: number | string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,11 +37,20 @@ interface WatchRowOptions {
 export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
   if (!supabase) throw new Error("Supabase is not configured.");
 
-  const watchesResult = await supabase
+  let watchesResult = await supabase
     .from("watches")
     .select("*")
     .eq("user_id", user.id)
+    .order("display_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
+
+  if (isMissingDisplayOrderError(watchesResult.error)) {
+    watchesResult = await supabase
+      .from("watches")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+  }
 
   if (watchesResult.error) throw watchesResult.error;
   const watches = ((watchesResult.data || []) as WatchRow[]).map((row, index) => fromWatchRow(row, index));
@@ -54,11 +64,46 @@ export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
 export async function upsertCloudWatch(user: User, watch: Watch) {
   if (!supabase) throw new Error("Supabase is not configured.");
 
-  const { error } = await supabase.from("watches").upsert(toWatchRow(user, watch), {
+  const row = toWatchRow(user, watch);
+  const { error } = await supabase.from("watches").upsert(row, {
     onConflict: "id"
   });
 
-  if (error) throw error;
+  if (!isMissingDisplayOrderError(error)) {
+    if (error) throw error;
+    return;
+  }
+
+  const { display_order: _displayOrder, ...fallbackRow } = row;
+  const fallbackResult = await supabase.from("watches").upsert(fallbackRow, {
+    onConflict: "id"
+  });
+
+  if (fallbackResult.error) throw fallbackResult.error;
+}
+
+export async function updateCloudWatchOrder(user: User, watches: Watch[]) {
+  const client = supabase;
+  if (!client) throw new Error("Supabase is not configured.");
+
+  const updatedAt = new Date().toISOString();
+  const updates = watches.map((watch, index) =>
+    client
+      .from("watches")
+      .update({
+        display_order: getDisplayOrderForIndex(index),
+        updated_at: updatedAt
+      })
+      .eq("id", watch.id)
+      .eq("user_id", user.id)
+  );
+
+  const results = await Promise.all(updates);
+  const failed = results.find((result) => result.error);
+  if (isMissingDisplayOrderError(failed?.error)) {
+    throw new Error("Run the Supabase display_order migration before saving custom watch order.");
+  }
+  if (failed?.error) throw failed.error;
 }
 
 export async function deleteCloudWatch(id: string) {
@@ -155,6 +200,7 @@ function fromWatchRow(row: WatchRow, index: number, options: WatchRowOptions = {
     imageUrl: imageUrls[0],
     imageUrls,
     imagePaths,
+    displayOrder: normalizeDisplayOrder(row.display_order, index),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -184,6 +230,7 @@ function toWatchRow(user: User, watch: Watch): WatchRow {
     image_url: imageUrls[0] || null,
     image_urls: imageUrls,
     image_paths: imagePaths,
+    display_order: watch.displayOrder,
     created_at: watch.createdAt,
     updated_at: new Date().toISOString()
   };
@@ -279,4 +326,19 @@ function cleanFileName(value: string) {
 function getImageContentType(file: File) {
   if (file.type) return file.type;
   return file.name.toLowerCase().endsWith(".avif") ? "image/avif" : undefined;
+}
+
+export function getDisplayOrderForIndex(index: number) {
+  return (index + 1) * 1000;
+}
+
+function normalizeDisplayOrder(value: unknown, index: number) {
+  const order = Number(value);
+  return Number.isFinite(order) ? order : getDisplayOrderForIndex(index);
+}
+
+function isMissingDisplayOrderError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const item = error as { code?: unknown; message?: unknown };
+  return item.code === "42703" || String(item.message || "").toLowerCase().includes("display_order");
 }
