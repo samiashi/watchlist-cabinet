@@ -78,10 +78,12 @@ function CabinetApp() {
   const [previewWatch, setPreviewWatch] = useState<PreviewState | null>(null);
   const [toast, setToast] = useState("");
   const [isSharing, setIsSharing] = useState(false);
+  const [isSavingWatch, setIsSavingWatch] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [authMessage, setAuthMessage] = useState("");
   const toastTimer = useRef<number | null>(null);
+  const isSavingWatchRef = useRef(false);
   const cloudUser = session?.user || null;
 
   useEffect(() => {
@@ -245,102 +247,112 @@ function CabinetApp() {
 
   async function handleWatchFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const editingId = drawer.editingId;
-    const existing = editingId ? watches.find((watch) => watch.id === editingId) : null;
-    const id = existing?.id || createId();
-    const category = String(form.get("category")) as WatchCategory;
-    const brand = cleanText(form.get("brand"));
-    const model = cleanText(form.get("model"));
-    const sourceUrl = normalizeUrl(form.get("sourceUrl"));
-    const imageOrder = getFormImageOrder(form);
-    const imageFiles = getFormImageFiles(form);
-    const previousImagePaths = existing ? getStoredImageItems(existing).map((image) => image.path) : [];
-    const imageCount = imageOrder.length;
+    if (isSavingWatchRef.current) return;
 
-    if (!brand || !model || !sourceUrl) {
-      showToast("Brand, model, and URL are required.");
-      return;
-    }
-
-    if (imageCount > maxWatchImages) {
-      showToast(`Keep images to ${maxWatchImages} or fewer.`);
-      return;
-    }
-
-    if (imageFiles.length && !cloudUser) {
-      showToast("Sign in with Google to upload watch images.");
-      return;
-    }
-
-    let uploadedImagePaths: string[] = [];
-
-    if (imageFiles.length && cloudUser) {
-      try {
-        uploadedImagePaths = await uploadWatchImages(cloudUser, id, imageFiles);
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : "Images were not uploaded.");
-        return;
-      }
-    }
-
-    const uploadedPathById = new Map(getFormImageUploadIds(form).map((uploadId, index) => [uploadId, uploadedImagePaths[index] || ""]));
-    const imagePaths = normalizeImagePaths(
-      imageOrder.map((value) => {
-        if (value.startsWith("path:")) return value.slice(5);
-        if (value.startsWith("upload:")) return uploadedPathById.get(value.slice(7)) || "";
-        return "";
-      })
-    );
-    const removedImagePaths = previousImagePaths.filter((path) => !imagePaths.includes(path));
-    let signedImageUrls: string[] = [];
-
-    if (imagePaths.length && cloudUser) {
-      try {
-        signedImageUrls = await signWatchImagePaths(imagePaths);
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : "Images were not prepared.");
-        return;
-      }
-    }
-
-    const allImageUrls = normalizeImageUrls(signedImageUrls, null, makeWatchImage(category, id));
-
-    const watch: Watch = {
-      id,
-      brand,
-      model,
-      category,
-      status: String(form.get("status")) as WatchStatus,
-      movement: normalizeMovement(form.get("movement")),
-      caseSize: Number(form.get("caseSize")) || 0,
-      price: Number(form.get("price")) || 0,
-      referenceNumber: cleanText(form.get("referenceNumber")),
-      sourceUrl,
-      imageUrl: allImageUrls[0],
-      imageUrls: allImageUrls,
-      imagePaths,
-      displayOrder: existing?.displayOrder ?? getNewWatchDisplayOrder(watches),
-      createdAt: existing?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    isSavingWatchRef.current = true;
+    setIsSavingWatch(true);
 
     try {
-      await saveWatch(watch);
-      if (removedImagePaths.length) {
-        void deleteWatchImages(removedImagePaths).catch((error) => {
-          console.warn("Could not delete removed watch images", error);
-        });
+      const form = new FormData(event.currentTarget);
+      const editingId = drawer.editingId;
+      const existing = editingId ? watches.find((watch) => watch.id === editingId) : null;
+      const id = existing?.id || createId();
+      const category = String(form.get("category")) as WatchCategory;
+      const brand = cleanText(form.get("brand"));
+      const model = cleanText(form.get("model"));
+      const sourceUrl = normalizeUrl(form.get("sourceUrl"));
+      const imageOrder = getFormImageOrder(form);
+      const imageFiles = getFormImageFiles(form);
+      const previousImagePaths = existing ? getStoredImageItems(existing).map((image) => image.path) : [];
+      const imageCount = imageOrder.length;
+
+      if (!brand || !model || !sourceUrl) {
+        showToast("Brand, model, and URL are required.");
+        return;
       }
-      closeDrawer();
-      showToast(existing ? "Watch updated." : "Watch added.");
-    } catch (error) {
-      if (uploadedImagePaths.length) {
-        void deleteWatchImages(uploadedImagePaths).catch((deleteError) => {
-          console.warn("Could not clean up unsaved watch images", deleteError);
-        });
+
+      if (imageCount > maxWatchImages) {
+        showToast(`Keep images to ${maxWatchImages} or fewer.`);
+        return;
       }
-      showToast(error instanceof Error ? error.message : "Watch was not saved.");
+
+      if (imageFiles.length && !cloudUser) {
+        showToast("Sign in with Google to upload watch images.");
+        return;
+      }
+
+      let uploadedImagePaths: string[] = [];
+
+      if (imageFiles.length && cloudUser) {
+        try {
+          uploadedImagePaths = await uploadWatchImages(cloudUser, id, imageFiles);
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : "Images were not uploaded.");
+          return;
+        }
+      }
+
+      const uploadedPathById = new Map(getFormImageUploadIds(form).map((uploadId, index) => [uploadId, uploadedImagePaths[index] || ""]));
+      const imagePaths = normalizeImagePaths(
+        imageOrder.map((value) => {
+          if (value.startsWith("path:")) return value.slice(5);
+          if (value.startsWith("upload:")) return uploadedPathById.get(value.slice(7)) || "";
+          return "";
+        })
+      );
+      const removedImagePaths = previousImagePaths.filter((path) => !imagePaths.includes(path));
+      let signedImageUrls: string[] = [];
+
+      if (imagePaths.length && cloudUser) {
+        try {
+          signedImageUrls = await signWatchImagePaths(imagePaths);
+        } catch (error) {
+          showToast(error instanceof Error ? error.message : "Images were not prepared.");
+          return;
+        }
+      }
+
+      const allImageUrls = normalizeImageUrls(signedImageUrls, null, makeWatchImage(category, id));
+
+      const watch: Watch = {
+        id,
+        brand,
+        model,
+        category,
+        status: String(form.get("status")) as WatchStatus,
+        movement: normalizeMovement(form.get("movement")),
+        caseSize: Number(form.get("caseSize")) || 0,
+        price: Number(form.get("price")) || 0,
+        referenceNumber: cleanText(form.get("referenceNumber")),
+        sourceUrl,
+        imageUrl: allImageUrls[0],
+        imageUrls: allImageUrls,
+        imagePaths,
+        displayOrder: existing?.displayOrder ?? getNewWatchDisplayOrder(watches),
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      try {
+        await saveWatch(watch);
+        if (removedImagePaths.length) {
+          void deleteWatchImages(removedImagePaths).catch((error) => {
+            console.warn("Could not delete removed watch images", error);
+          });
+        }
+        closeDrawer();
+        showToast(existing ? "Watch updated." : "Watch added.");
+      } catch (error) {
+        if (uploadedImagePaths.length) {
+          void deleteWatchImages(uploadedImagePaths).catch((deleteError) => {
+            console.warn("Could not clean up unsaved watch images", deleteError);
+          });
+        }
+        showToast(error instanceof Error ? error.message : "Watch was not saved.");
+      }
+    } finally {
+      isSavingWatchRef.current = false;
+      setIsSavingWatch(false);
     }
   }
 
@@ -406,6 +418,7 @@ function CabinetApp() {
         <WatchDrawer
           editing={drawer.editingId ? watches.find((watch) => watch.id === drawer.editingId) || null : null}
           filters={filters}
+          isSubmitting={isSavingWatch}
           onClose={closeDrawer}
           onSubmit={handleWatchFormSubmit}
         />
@@ -1146,11 +1159,13 @@ function ImagePreview({
 function WatchDrawer({
   editing,
   filters,
+  isSubmitting,
   onClose,
   onSubmit
 }: {
   editing: Watch | null;
   filters: CabinetFilters;
+  isSubmitting: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
@@ -1183,13 +1198,14 @@ function WatchDrawer({
     <div
       className="drawer-backdrop"
       onClick={(event) => {
+        if (isSubmitting) return;
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <form className="drawer" id="watchForm" aria-label={editing ? "Edit watch" : "Add watch"} onSubmit={onSubmit}>
         <div className="drawer-header">
           <h2 className="drawer-title">{editing ? "Edit watch" : "Add watch"}</h2>
-          <button className="button button-icon" type="button" onClick={onClose} aria-label="Close drawer">
+          <button className="button button-icon" type="button" onClick={onClose} disabled={isSubmitting} aria-label="Close drawer">
             <X size={18} />
           </button>
         </div>
@@ -1293,12 +1309,12 @@ function WatchDrawer({
           </div>
         </div>
         <div className="drawer-footer">
-          <button className="button" type="button" onClick={onClose}>
+          <button className="button" type="button" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </button>
-          <button className="button button-primary" type="submit">
-            <Save size={16} />
-            <span>{editing ? "Save changes" : "Add watch"}</span>
+          <button className="button button-primary" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+            <span>{isSubmitting ? "Saving..." : editing ? "Save changes" : "Add watch"}</span>
           </button>
         </div>
       </form>
