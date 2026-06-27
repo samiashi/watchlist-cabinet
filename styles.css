@@ -556,6 +556,10 @@ svg {
   align-items: stretch;
 }
 
+.watch-grid.is-reordering {
+  user-select: none;
+}
+
 .watch-row {
   position: relative;
   min-width: 0;
@@ -581,13 +585,46 @@ svg {
     rgba(20, 22, 27, 0.9);
 }
 
-.watch-row.is-dragging {
-  z-index: 3;
-  border-color: rgba(10, 132, 255, 0.78);
+.watch-row.is-drag-placeholder {
+  border-color: rgba(10, 132, 255, 0.54);
+  border-style: dashed;
   background:
-    linear-gradient(180deg, rgba(10, 132, 255, 0.16), rgba(255, 255, 255, 0.025)),
-    rgba(20, 22, 27, 0.96);
+    linear-gradient(180deg, rgba(10, 132, 255, 0.1), rgba(255, 255, 255, 0.012)),
+    rgba(20, 22, 27, 0.72);
+  box-shadow: none;
   transform: scale(0.985);
+}
+
+.watch-row.is-drag-placeholder > * {
+  opacity: 0.16;
+}
+
+.drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  pointer-events: none;
+  will-change: transform;
+  contain: layout paint;
+}
+
+.drag-overlay *,
+.drag-overlay {
+  pointer-events: none;
+}
+
+.drag-overlay .watch-row {
+  height: 100%;
+}
+
+.watch-row.is-drag-overlay-card {
+  border-color: rgba(10, 132, 255, 0.82);
+  background:
+    linear-gradient(180deg, rgba(10, 132, 255, 0.15), rgba(255, 255, 255, 0.026)),
+    rgba(20, 22, 27, 0.97);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(10, 132, 255, 0.14);
+  transform: rotate(0.7deg) scale(1.015);
 }
 
 .reorder-handle {
