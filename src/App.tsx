@@ -785,6 +785,7 @@ function Board({
   const gridRef = useRef<HTMLDivElement | null>(null);
   const draggingIdRef = useRef<string | null>(null);
   const draftOrderRef = useRef<string[]>([]);
+  const dragOverlayRef = useRef<DragOverlayState | null>(null);
   const positionsBeforeReorderRef = useRef<Map<string, DOMRect>>(new Map());
   const visibleOrderRef = useRef<string[]>([]);
   const visibleOrder = useMemo(() => watches.map((watch) => watch.id), [watches]);
@@ -907,37 +908,51 @@ function Board({
 
     draggingIdRef.current = watchId;
     draftOrderRef.current = visibleOrder;
+    dragOverlayRef.current = overlay;
     setDraggingId(watchId);
     setDraftOrder(visibleOrder);
     setDragOverlay(overlay);
   }
 
   function updateDragOverlayAtPoint(clientX: number, clientY: number) {
-    setDragOverlay((current) => {
-      if (!current) return current;
-      const next = {
-        ...current,
-        x: clientX - current.offsetX,
-        y: clientY - current.offsetY
-      };
-      return next;
-    });
+    const current = dragOverlayRef.current;
+    if (!current) return;
+
+    const next = {
+      ...current,
+      x: clientX - current.offsetX,
+      y: clientY - current.offsetY
+    };
+
+    dragOverlayRef.current = next;
+    setDragOverlay(next);
   }
 
   function updateReorderAtPoint(clientX: number, clientY: number) {
     const currentDraggingId = draggingIdRef.current;
     if (!currentDraggingId) return;
-    const target = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-watch-id]");
+    const dragCenter = getDragOverlayCenter(clientX, clientY);
+    const target = document.elementFromPoint(dragCenter.x, dragCenter.y)?.closest<HTMLElement>("[data-watch-id]");
     const targetId = target?.dataset.watchId;
     if (!targetId || targetId === currentDraggingId) return;
 
     setDraftOrder((current) => {
-      const next = moveIdAround(current, currentDraggingId, targetId, shouldPlaceAfterTarget(target, clientX, clientY));
+      const next = moveIdAround(current, currentDraggingId, targetId, shouldPlaceAfterTarget(target, dragCenter.x, dragCenter.y, currentDraggingId));
       if (next === current) return current;
       captureGridPositions();
       draftOrderRef.current = next;
       return next;
     });
+  }
+
+  function getDragOverlayCenter(clientX: number, clientY: number) {
+    const overlay = dragOverlayRef.current;
+    if (!overlay) return { x: clientX, y: clientY };
+
+    return {
+      x: clientX - overlay.offsetX + overlay.width / 2,
+      y: clientY - overlay.offsetY + overlay.height / 2
+    };
   }
 
   function captureGridPositions() {
@@ -957,6 +972,7 @@ function Board({
     const nextOrder = draftOrderRef.current.length ? draftOrderRef.current : visibleOrderRef.current;
     draggingIdRef.current = null;
     draftOrderRef.current = [];
+    dragOverlayRef.current = null;
     setDraggingId(null);
     setDraftOrder([]);
     setDragOverlay(null);
@@ -967,6 +983,7 @@ function Board({
     if (!draggingIdRef.current) return;
     draggingIdRef.current = null;
     draftOrderRef.current = [];
+    dragOverlayRef.current = null;
     setDraggingId(null);
     setDraftOrder([]);
     setDragOverlay(null);
@@ -1705,14 +1722,35 @@ function moveIdAround(ids: string[], movingId: string, targetId: string, placeAf
   return next.every((id, index) => id === ids[index]) ? ids : next;
 }
 
-function shouldPlaceAfterTarget(target: HTMLElement, clientX: number, clientY: number) {
+function shouldPlaceAfterTarget(target: HTMLElement, clientX: number, clientY: number, movingId: string) {
   const rect = target.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
+  const placeholder = getWatchCardElement(movingId);
+
+  if (placeholder) {
+    const placeholderRect = placeholder.getBoundingClientRect();
+    const rowOverlap = getOverlapRatio(placeholderRect.top, placeholderRect.bottom, rect.top, rect.bottom);
+    const columnOverlap = getOverlapRatio(placeholderRect.left, placeholderRect.right, rect.left, rect.right);
+
+    if (rowOverlap >= 0.35) return clientX > centerX;
+    if (columnOverlap >= 0.35) return clientY > centerY;
+  }
+
   const verticalDistance = Math.abs(clientY - centerY) / Math.max(rect.height, 1);
   const horizontalDistance = Math.abs(clientX - centerX) / Math.max(rect.width, 1);
 
   return verticalDistance > horizontalDistance ? clientY > centerY : clientX > centerX;
+}
+
+function getWatchCardElement(watchId: string) {
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-watch-id]")).find((element) => element.dataset.watchId === watchId) || null;
+}
+
+function getOverlapRatio(firstStart: number, firstEnd: number, secondStart: number, secondEnd: number) {
+  const overlap = Math.max(0, Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart));
+  const smallerSize = Math.max(1, Math.min(firstEnd - firstStart, secondEnd - secondStart));
+  return overlap / smallerSize;
 }
 
 function getReactClientPoint(event: ReactPointerEvent<HTMLElement> | ReactMouseEvent<HTMLElement>) {
