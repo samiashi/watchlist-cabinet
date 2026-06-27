@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 import type { Session } from "@supabase/supabase-js";
 import {
   ArrowDownUp,
@@ -971,6 +972,24 @@ function Board({
     setDragOverlay(null);
   }
 
+  const dragOverlayPortal =
+    dragOverlay && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="drag-overlay"
+            aria-hidden="true"
+            style={{
+              width: dragOverlay.width,
+              height: dragOverlay.height,
+              transform: `translate3d(${dragOverlay.x}px, ${dragOverlay.y}px, 0)`
+            }}
+          >
+            <WatchRow watch={dragOverlay.watch} index={0} onPreview={() => undefined} isDragOverlay />
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
     <section className="board" aria-label="Watch collection">
       <div className="board-header">
@@ -1000,19 +1019,7 @@ function Board({
       ) : (
         <EmptyState />
       )}
-      {dragOverlay ? (
-        <div
-          className="drag-overlay"
-          aria-hidden="true"
-          style={{
-            width: dragOverlay.width,
-            height: dragOverlay.height,
-            transform: `translate3d(${dragOverlay.x}px, ${dragOverlay.y}px, 0)`
-          }}
-        >
-          <WatchRow watch={dragOverlay.watch} index={0} onPreview={() => undefined} isDragOverlay />
-        </div>
-      ) : null}
+      {dragOverlayPortal}
     </section>
   );
 }
