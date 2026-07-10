@@ -6,7 +6,7 @@ A private, mobile-first watch collecting app for tracking owned watches, wishlis
 
 ![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&labelColor=111317)
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&labelColor=111317)
-![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?style=flat-square&labelColor=111317)
+![TypeScript](https://img.shields.io/badge/TypeScript-7-3178c6?style=flat-square&labelColor=111317)
 ![Supabase](https://img.shields.io/badge/Supabase-ready-3ecf8e?style=flat-square&labelColor=111317)
 ![Dark Mode](https://img.shields.io/badge/Dark%20mode-only-0f1012?style=flat-square&labelColor=111317)
 
