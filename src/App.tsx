@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import type { Session } from "@supabase/supabase-js";
 import {
   ArrowDownUp,
@@ -53,6 +54,7 @@ import {
 } from "./lib/cloudStorage";
 import { cleanText, createId, formatCurrency, formatWatchCount, getDomain, normalizeUrl, sum } from "./lib/formatters";
 import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
+import { reorderItems } from "./lib/reorderItems";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { categories, maxWatchImages, movements, type CabinetFilters, type CabinetSummary, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./lib/types";
 import { getStorageImagePath, getWatchImages, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./lib/watchImages";
@@ -63,15 +65,6 @@ const pendingImageFiles = new Map<string, File>();
 
 type DrawerState = { open: false; editingId: null } | { open: true; editingId: string | null };
 type PreviewState = { watch: Watch; imageIndex: number };
-type DragOverlayState = {
-  watch: Watch;
-  width: number;
-  height: number;
-  offsetX: number;
-  offsetY: number;
-  x: number;
-  y: number;
-};
 type ManagedImage =
   | { id: string; kind: "stored"; path: string; url: string }
   | { id: string; kind: "upload"; file: File; url: string };
@@ -780,232 +773,17 @@ function Board({
   onReorder: (orderedIds: string[]) => void;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [draftOrder, setDraftOrder] = useState<string[]>([]);
-  const [dragOverlay, setDragOverlay] = useState<DragOverlayState | null>(null);
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  const draggingIdRef = useRef<string | null>(null);
-  const draftOrderRef = useRef<string[]>([]);
-  const dragOverlayRef = useRef<DragOverlayState | null>(null);
-  const positionsBeforeReorderRef = useRef<Map<string, DOMRect>>(new Map());
-  const visibleOrderRef = useRef<string[]>([]);
   const visibleOrder = useMemo(() => watches.map((watch) => watch.id), [watches]);
-  const renderedOrder = draggingId ? draftOrder : visibleOrder;
-  const renderedWatches = useMemo(() => {
-    const byId = new Map(watches.map((watch) => [watch.id, watch]));
-    return renderedOrder.map((id) => byId.get(id)).filter((watch): watch is Watch => Boolean(watch));
-  }, [renderedOrder, watches]);
 
-  useEffect(() => {
-    draggingIdRef.current = draggingId;
-  }, [draggingId]);
-
-  useEffect(() => {
-    draftOrderRef.current = draftOrder;
-  }, [draftOrder]);
-
-  useEffect(() => {
-    visibleOrderRef.current = visibleOrder;
-    if (!draggingId) setDraftOrder(visibleOrder);
-  }, [draggingId, visibleOrder]);
-
-  useLayoutEffect(() => {
-    if (!draggingId) return;
-
-    const previousPositions = positionsBeforeReorderRef.current;
-    const grid = gridRef.current;
-    if (!grid || !previousPositions.size) return;
-
-    grid.querySelectorAll<HTMLElement>("[data-watch-id]").forEach((card) => {
-      const id = card.dataset.watchId;
-      if (!id || id === draggingId) return;
-
-      const previous = previousPositions.get(id);
-      if (!previous) return;
-
-      const current = card.getBoundingClientRect();
-      const deltaX = previous.left - current.left;
-      const deltaY = previous.top - current.top;
-      if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
-
-      card.style.transition = "none";
-      card.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0)`;
-
-      requestAnimationFrame(() => {
-        card.style.transition = "transform 180ms cubic-bezier(0.2, 0, 0, 1)";
-        card.style.transform = "";
-        window.setTimeout(() => {
-          card.style.transition = "";
-        }, 220);
-      });
-    });
-
-    positionsBeforeReorderRef.current = new Map();
-  }, [draggingId, renderedOrder]);
-
-  useEffect(() => {
-    if (!draggingId) return;
-
-    function move(event: PointerEvent | MouseEvent | TouchEvent) {
-      const point = getClientPoint(event);
-      if (!point) return;
-      if ("cancelable" in event && event.cancelable) event.preventDefault();
-      updateDragOverlayAtPoint(point.x, point.y);
-      updateReorderAtPoint(point.x, point.y);
-    }
-
-    function finish() {
-      finishReorder();
-    }
-
-    function cancel() {
-      cancelReorder();
-    }
-
-    window.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", cancel);
-    window.addEventListener("mousemove", move, { passive: false });
-    window.addEventListener("mouseup", finish);
-    window.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("touchend", finish);
-    window.addEventListener("touchcancel", cancel);
-
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", cancel);
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", finish);
-      window.removeEventListener("touchmove", move);
-      window.removeEventListener("touchend", finish);
-      window.removeEventListener("touchcancel", cancel);
-    };
-  }, [draggingId]);
-
-  function startReorder(watchId: string, event: ReactPointerEvent<HTMLButtonElement> | ReactMouseEvent<HTMLButtonElement>) {
-    if (!canReorder) return;
-    if (draggingIdRef.current) return;
-    event.preventDefault();
-    const watch = watches.find((item) => item.id === watchId);
-    const card = event.currentTarget.closest<HTMLElement>("[data-watch-id]");
-    const rect = card?.getBoundingClientRect();
-    const point = getReactClientPoint(event);
-    if (!watch || !rect || !point) return;
-
-    if ("pointerId" in event) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-
-    const overlay = {
-      watch,
-      width: rect.width,
-      height: rect.height,
-      offsetX: point.x - rect.left,
-      offsetY: point.y - rect.top,
-      x: rect.left,
-      y: rect.top
-    };
-
-    draggingIdRef.current = watchId;
-    draftOrderRef.current = visibleOrder;
-    dragOverlayRef.current = overlay;
-    setDraggingId(watchId);
-    setDraftOrder(visibleOrder);
-    setDragOverlay(overlay);
-  }
-
-  function updateDragOverlayAtPoint(clientX: number, clientY: number) {
-    const current = dragOverlayRef.current;
-    if (!current) return;
-
-    const next = {
-      ...current,
-      x: clientX - current.offsetX,
-      y: clientY - current.offsetY
-    };
-
-    dragOverlayRef.current = next;
-    setDragOverlay(next);
-  }
-
-  function updateReorderAtPoint(clientX: number, clientY: number) {
-    const currentDraggingId = draggingIdRef.current;
-    if (!currentDraggingId) return;
-    const dragCenter = getDragOverlayCenter(clientX, clientY);
-    const target = document.elementFromPoint(dragCenter.x, dragCenter.y)?.closest<HTMLElement>("[data-watch-id]");
-    const targetId = target?.dataset.watchId;
-    if (!targetId || targetId === currentDraggingId) return;
-
-    setDraftOrder((current) => {
-      const next = moveIdAround(current, currentDraggingId, targetId, shouldPlaceAfterTarget(target, dragCenter.x, dragCenter.y, currentDraggingId));
-      if (next === current) return current;
-      captureGridPositions();
-      draftOrderRef.current = next;
-      return next;
-    });
-  }
-
-  function getDragOverlayCenter(clientX: number, clientY: number) {
-    const overlay = dragOverlayRef.current;
-    if (!overlay) return { x: clientX, y: clientY };
-
-    return {
-      x: clientX - overlay.offsetX + overlay.width / 2,
-      y: clientY - overlay.offsetY + overlay.height / 2
-    };
-  }
-
-  function captureGridPositions() {
-    const grid = gridRef.current;
-    if (!grid) return;
-
-    const positions = new Map<string, DOMRect>();
-    grid.querySelectorAll<HTMLElement>("[data-watch-id]").forEach((card) => {
-      const id = card.dataset.watchId;
-      if (id) positions.set(id, card.getBoundingClientRect());
-    });
-    positionsBeforeReorderRef.current = positions;
-  }
-
-  function finishReorder() {
-    if (!draggingIdRef.current) return;
-    const nextOrder = draftOrderRef.current.length ? draftOrderRef.current : visibleOrderRef.current;
-    draggingIdRef.current = null;
-    draftOrderRef.current = [];
-    dragOverlayRef.current = null;
+  function finishReorder(event: DragEndEvent) {
     setDraggingId(null);
-    setDraftOrder([]);
-    setDragOverlay(null);
-    onReorder(nextOrder);
-  }
+    if (event.canceled) return;
 
-  function cancelReorder() {
-    if (!draggingIdRef.current) return;
-    draggingIdRef.current = null;
-    draftOrderRef.current = [];
-    dragOverlayRef.current = null;
-    setDraggingId(null);
-    setDraftOrder([]);
-    setDragOverlay(null);
-  }
+    const { source } = event.operation;
+    if (!isSortable(source) || source.initialIndex === source.index) return;
 
-  const dragOverlayPortal =
-    dragOverlay && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="drag-overlay"
-            aria-hidden="true"
-            style={{
-              width: dragOverlay.width,
-              height: dragOverlay.height,
-              transform: `translate3d(${dragOverlay.x}px, ${dragOverlay.y}px, 0)`
-            }}
-          >
-            <WatchRow watch={dragOverlay.watch} index={0} onPreview={() => undefined} isDragOverlay />
-          </div>,
-          document.body
-        )
-      : null;
+    onReorder(reorderItems(visibleOrder, source.initialIndex, source.index));
+  }
 
   return (
     <section className="board" aria-label="Watch collection">
@@ -1019,25 +797,62 @@ function Board({
           <SortSelect sort={filters.sort} onChange={(sort) => onFilterChange({ sort })} />
         </div>
       </div>
-      {watches.length ? (
-        <div ref={gridRef} className={`watch-grid ${draggingId ? "is-reordering" : ""}`} aria-label="Watches">
-          {renderedWatches.map((watch, index) => (
-            <WatchRow
-              watch={watch}
-              index={index}
-              key={watch.id}
-              onPreview={onPreview}
-              canReorder={canReorder}
-              isDragPlaceholder={draggingId === watch.id}
-              onReorderStart={startReorder}
-            />
-          ))}
-        </div>
-      ) : (
-        <EmptyState />
-      )}
-      {dragOverlayPortal}
+      <DragDropProvider
+        onDragStart={({ operation }) => setDraggingId(operation.source ? String(operation.source.id) : null)}
+        onDragEnd={finishReorder}
+      >
+        {watches.length ? (
+          <div className={`watch-grid ${draggingId ? "is-reordering" : ""}`} aria-label="Watches">
+            {watches.map((watch, index) => (
+              <SortableWatchRow watch={watch} index={index} key={watch.id} onPreview={onPreview} canReorder={canReorder} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState />
+        )}
+        <DragOverlay className="drag-overlay" dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" }}>
+          {(source) => {
+            const watch = watches.find((item) => item.id === String(source.id));
+            return watch ? <WatchRow watch={watch} index={0} onPreview={() => undefined} isDragOverlay /> : null;
+          }}
+        </DragOverlay>
+      </DragDropProvider>
     </section>
+  );
+}
+
+function SortableWatchRow({
+  watch,
+  index,
+  onPreview,
+  canReorder
+}: {
+  watch: Watch;
+  index: number;
+  onPreview: (watch: Watch, imageIndex?: number) => void;
+  canReorder: boolean;
+}) {
+  const { ref, handleRef, isDragSource } = useSortable({
+    id: watch.id,
+    index,
+    disabled: !canReorder,
+    transition: {
+      duration: 220,
+      easing: "cubic-bezier(0.2, 0, 0, 1)",
+      idle: true
+    }
+  });
+
+  return (
+    <WatchRow
+      watch={watch}
+      index={index}
+      onPreview={onPreview}
+      canReorder={canReorder}
+      isDragPlaceholder={isDragSource}
+      rowRef={ref}
+      handleRef={handleRef}
+    />
   );
 }
 
@@ -1048,7 +863,8 @@ function WatchRow({
   canReorder = false,
   isDragPlaceholder = false,
   isDragOverlay = false,
-  onReorderStart
+  rowRef,
+  handleRef
 }: {
   watch: Watch;
   index: number;
@@ -1056,13 +872,15 @@ function WatchRow({
   canReorder?: boolean;
   isDragPlaceholder?: boolean;
   isDragOverlay?: boolean;
-  onReorderStart?: (watchId: string, event: ReactPointerEvent<HTMLButtonElement> | ReactMouseEvent<HTMLButtonElement>) => void;
+  rowRef?: (element: HTMLElement | null) => void;
+  handleRef?: (element: HTMLButtonElement | null) => void;
 }) {
   const statusLabel = watch.status === "owned" ? "Owned" : "Wishlist";
   const primaryImage = getWatchImages(watch)[0] || makeWatchImage(watch.category, watch.id);
 
   return (
     <article
+      ref={rowRef}
       className={`watch-row is-${watch.status} ${isDragPlaceholder ? "is-drag-placeholder" : ""} ${
         isDragOverlay ? "is-drag-overlay-card" : ""
       }`}
@@ -1070,11 +888,10 @@ function WatchRow({
     >
       {canReorder ? (
         <button
+          ref={handleRef}
           className="reorder-handle"
           type="button"
           aria-label={`Reorder ${watch.brand} ${watch.model}`}
-          onPointerDown={(event) => onReorderStart?.(watch.id, event)}
-          onMouseDown={(event) => onReorderStart?.(watch.id, event)}
         >
           <GripVertical size={15} />
         </button>
@@ -1708,62 +1525,6 @@ function areWatchOrdersEqual(left: Watch[], right: Watch[]) {
   const leftOrder = sortWatchesByCustomOrder(left).map((watch) => watch.id);
   const rightOrder = sortWatchesByCustomOrder(right).map((watch) => watch.id);
   return leftOrder.every((id, index) => id === rightOrder[index]);
-}
-
-function moveIdAround(ids: string[], movingId: string, targetId: string, placeAfterTarget: boolean) {
-  const fromIndex = ids.indexOf(movingId);
-  const targetIndex = ids.indexOf(targetId);
-  if (fromIndex < 0 || targetIndex < 0 || fromIndex === targetIndex) return ids;
-
-  const next = ids.filter((id) => id !== movingId);
-  const adjustedTargetIndex = next.indexOf(targetId);
-  if (adjustedTargetIndex < 0) return ids;
-  next.splice(adjustedTargetIndex + (placeAfterTarget ? 1 : 0), 0, movingId);
-  return next.every((id, index) => id === ids[index]) ? ids : next;
-}
-
-function shouldPlaceAfterTarget(target: HTMLElement, clientX: number, clientY: number, movingId: string) {
-  const rect = target.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  const placeholder = getWatchCardElement(movingId);
-
-  if (placeholder) {
-    const placeholderRect = placeholder.getBoundingClientRect();
-    const rowOverlap = getOverlapRatio(placeholderRect.top, placeholderRect.bottom, rect.top, rect.bottom);
-    const columnOverlap = getOverlapRatio(placeholderRect.left, placeholderRect.right, rect.left, rect.right);
-
-    if (rowOverlap >= 0.35) return clientX > centerX;
-    if (columnOverlap >= 0.35) return clientY > centerY;
-  }
-
-  const verticalDistance = Math.abs(clientY - centerY) / Math.max(rect.height, 1);
-  const horizontalDistance = Math.abs(clientX - centerX) / Math.max(rect.width, 1);
-
-  return verticalDistance > horizontalDistance ? clientY > centerY : clientX > centerX;
-}
-
-function getWatchCardElement(watchId: string) {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-watch-id]")).find((element) => element.dataset.watchId === watchId) || null;
-}
-
-function getOverlapRatio(firstStart: number, firstEnd: number, secondStart: number, secondEnd: number) {
-  const overlap = Math.max(0, Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart));
-  const smallerSize = Math.max(1, Math.min(firstEnd - firstStart, secondEnd - secondStart));
-  return overlap / smallerSize;
-}
-
-function getReactClientPoint(event: ReactPointerEvent<HTMLElement> | ReactMouseEvent<HTMLElement>) {
-  return "clientX" in event && "clientY" in event ? { x: event.clientX, y: event.clientY } : null;
-}
-
-function getClientPoint(event: PointerEvent | MouseEvent | TouchEvent) {
-  if ("clientX" in event && "clientY" in event) {
-    return { x: event.clientX, y: event.clientY };
-  }
-
-  const touch = event.touches[0] || event.changedTouches[0];
-  return touch ? { x: touch.clientX, y: touch.clientY } : null;
 }
 
 function getSummary(watches: Watch[]): CabinetSummary {

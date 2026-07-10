@@ -55,6 +55,7 @@ A private, mobile-first watch collecting app for tracking owned watches, wishlis
 - React + TypeScript + Vite
 - Supabase Auth and Postgres
 - Vercel
+- dnd-kit
 - Lucide icons
 - Custom dark CSS design system
 
@@ -105,6 +106,8 @@ Deploy the private GitHub repo to Vercel and add the same env vars in the Vercel
 ```bash
 npm run dev        # Start local development
 npm run build      # Typecheck and build for production
+npm test           # Run unit tests
+npm run test:e2e   # Test drag and drop on desktop and mobile
 npm run preview    # Preview the production build
 npm run typecheck  # Run TypeScript checks
 ```
