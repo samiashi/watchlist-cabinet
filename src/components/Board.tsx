@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react";
+import { DragDropProvider, DragOverlay, PointerSensor, type DragEndEvent } from "@dnd-kit/react";
+import { PointerActivationConstraints } from "@dnd-kit/dom";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { ArrowDownUp, BadgeCheck, Banknote, Check, Clock, GripVertical, Grid3X3, Heart, Plus, Watch as WatchIcon, RotateCw, Ruler } from "lucide-react";
 import { formatCurrency, formatWatchCount, getDomain } from "../lib/formatters";
@@ -8,6 +9,14 @@ import { formatCaseSize } from "../hooks/watchHelpers";
 import type { CabinetFilters, Watch, WatchCategory, WatchStatus } from "../lib/types";
 import { reorderItems } from "../lib/reorderItems";
 import { CategoryGlyph } from "./CategoryGlyph";
+
+const TouchFriendlyPointer = PointerSensor.configure({
+  activationConstraints(event, source) {
+    if (event.pointerType === "touch") {
+      return [new PointerActivationConstraints.Delay({ value: 0, tolerance: 10 })];
+    }
+  }
+});
 
 export function Board({
   watches,
@@ -52,6 +61,7 @@ export function Board({
         </div>
       </div>
       <DragDropProvider
+        sensors={[TouchFriendlyPointer]}
         onDragStart={({ operation }) => setDraggingId(operation.source ? String(operation.source.id) : null)}
         onDragEnd={finishReorder}
       >
