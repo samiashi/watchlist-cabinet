@@ -5,7 +5,7 @@ export const maxWatchImages = 5;
 export type WatchCategory = (typeof categories)[number];
 export type WatchStatus = "owned" | "wishlist";
 export type WatchTab = "all" | WatchStatus;
-export type WatchSort = "relevance" | "price-desc" | "price-asc";
+export type WatchSort = "relevance" | "newest" | "price-desc" | "price-asc";
 export type WatchMovement = (typeof movements)[number];
 
 export interface Watch {

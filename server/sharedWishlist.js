@@ -1,4 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  formatCurrency,
+  formatWatchCount,
+  normalizeUrl,
+  getDomain,
+  escapeHtml,
+  escapeMarkdown,
+  normalizeImageUrls,
+  normalizeImagePaths,
+  normalizeAllImagePaths,
+  getStorageImagePath
+} from "../src/shared/utils.js";
 
 const watchImageBucket = "watch-images";
 const signedImageExpiresIn = 60 * 60;
@@ -106,51 +118,11 @@ export function sendSharedWishlistError(response, error, contentType = "json") {
   response.status(statusCode).json({ error: message });
 }
 
-export function formatCurrency(value) {
-  const amount = new Intl.NumberFormat("en-AE", {
-    maximumFractionDigits: 0
-  }).format(Number(value) || 0);
-
-  return `AED ${amount}`;
-}
-
-export function formatWatchCount(value) {
-  const count = Number(value) || 0;
-  return `${count} ${count === 1 ? "watch" : "watches"}`;
-}
-
-export function getDomain(value) {
-  try {
-    return new URL(normalizeUrl(value)).hostname.replace(/^www\./, "");
-  } catch {
-    return "source link";
-  }
-}
-
-export function normalizeUrl(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-}
-
 export function getRequestBaseUrl(request) {
   const host = String(request.headers.host || "watchlist-cabinet.vercel.app").split(",")[0].trim();
   const forwardedProtocol = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
   const protocol = forwardedProtocol || (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host) ? "http" : "https");
   return `${protocol}://${host}`;
-}
-
-export function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-export function escapeMarkdown(value) {
-  return String(value ?? "").replace(/[\\`*_{}[\]()#+\-.!|]/g, "\\$&");
 }
 
 export function renderSharedWishlistMarkdown(data, baseUrl, options = {}) {
@@ -302,70 +274,6 @@ function getStoragePaths(row) {
   return normalizeImagePaths(row.image_paths, legacyPaths);
 }
 
-function normalizeImageUrls(...sources) {
-  const urls = [];
-  const seen = new Set();
-
-  sources.forEach((source) => {
-    const values = Array.isArray(source) ? source : [source];
-    values.forEach((value) => {
-      if (typeof value !== "string") return;
-      const url = value.trim();
-      if (!url || seen.has(url)) return;
-      seen.add(url);
-      urls.push(url);
-    });
-  });
-
-  return urls.slice(0, 5);
-}
-
-function normalizeImagePaths(...sources) {
-  return collectImagePaths(5, ...sources);
-}
-
-function normalizeAllImagePaths(...sources) {
-  return collectImagePaths(Number.POSITIVE_INFINITY, ...sources);
-}
-
-function collectImagePaths(limit, ...sources) {
-  const paths = [];
-  const seen = new Set();
-
-  sources.forEach((source) => {
-    const values = Array.isArray(source) ? source : [source];
-    values.forEach((value) => {
-      if (typeof value !== "string") return;
-      const path = value.trim().replace(/^\/+/, "");
-      if (!path || seen.has(path)) return;
-      seen.add(path);
-      paths.push(path);
-    });
-  });
-
-  return paths.slice(0, limit);
-}
-
-function getStorageImagePath(value) {
-  if (typeof value !== "string") return "";
-
-  try {
-    const url = new URL(value, "https://storage.local");
-    const markers = [
-      "/storage/v1/object/public/watch-images/",
-      "/storage/v1/object/sign/watch-images/",
-      "/object/public/watch-images/",
-      "/object/sign/watch-images/"
-    ];
-    const marker = markers.find((item) => url.pathname.includes(item)) || "";
-    if (!marker) return "";
-
-    return decodeURIComponent(url.pathname.split(marker)[1] || "").replace(/^\/+/, "");
-  } catch {
-    return "";
-  }
-}
-
 function getSignedUrl(value) {
   if (!value || typeof value !== "object") return "";
   if (typeof value.signedUrl === "string") return value.signedUrl;
@@ -393,7 +301,7 @@ function normalizeMovement(value) {
   return movement === "Manual" || movement === "Quartz" ? movement : "Automatic";
 }
 
-function renderErrorHtml(statusCode, message) {
+export function renderErrorHtml(statusCode, message) {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -413,6 +321,87 @@ function renderErrorHtml(statusCode, message) {
       <p>Error ${statusCode}</p>
       <h1>Shared wishlist unavailable</h1>
       <p>${escapeHtml(message)}</p>
+    </main>
+  </body>
+</html>`;
+}
+
+export function renderSharedWishlistHtml(data, baseUrl) {
+  const shareUrl = `${baseUrl}/share/${encodeURIComponent(data.token)}`;
+  const textUrl = `${shareUrl}.txt`;
+  const mdUrl = `${shareUrl}.md`;
+  const jsonUrl = `${shareUrl}.json`;
+  const total = formatCurrency(data.summary.wishlist_total);
+  const count = formatWatchCount(data.summary.count);
+
+  const watchCards = data.watches.length
+    ? `<ul class="watch-list">${data.watches.map((watch, i) => {
+        const title = `${escapeHtml(watch.brand)} ${escapeHtml(watch.model)}`.trim() || "Untitled watch";
+        const price = formatCurrency(watch.price);
+        const srcUrl = normalizeUrl(watch.source_url);
+        const domain = getDomain(watch.source_url);
+        const caseSize = watch.case_size_mm ? `${watch.case_size_mm} mm` : "";
+        const refNum = watch.reference_number ? escapeHtml(watch.reference_number) : "";
+        const imgUrl = watch.image_urls?.[0] || "";
+        const imgTag = imgUrl ? `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(title)}" loading="lazy">` : "";
+        return `<li class="watch-card">
+          ${imgTag}
+          <div class="watch-body">
+            <div>
+              <p class="brand">${escapeHtml(watch.brand || "Not listed")}</p>
+              <h2>${escapeHtml(watch.model || "Not listed")}</h2>
+            </div>
+            <p class="price">${price}</p>
+            <dl>
+              <dt>Category</dt><dd>${escapeHtml(watch.category || "Not listed")}</dd>
+              <dt>Movement</dt><dd>${escapeHtml(watch.movement || "Not listed")}</dd>
+              ${caseSize ? `<dt>Case size</dt><dd>${caseSize}</dd>` : ""}
+              ${refNum ? `<dt>Reference</dt><dd>${refNum}</dd>` : ""}
+              <dt>Source</dt><dd><a class="source-link" href="${escapeHtml(srcUrl)}" target="_blank" rel="noreferrer">${escapeHtml(domain)}</a></dd>
+            </dl>
+          </div>
+        </li>`;
+      }).join("\n          ")}</ul>`
+    : '<p class="empty">No wishlist watches yet.</p>';
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Watch Wishlist</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="${escapeHtml(`${count} totaling ${total}`)}">
+    <link rel="stylesheet" href="/share.css">
+    <link rel="alternate" type="text/plain" href="${escapeHtml(textUrl)}">
+    <link rel="alternate" type="text/markdown" href="${escapeHtml(mdUrl)}">
+    <link rel="alternate" type="application/json" href="${escapeHtml(jsonUrl)}">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Shared from Cabinet</p>
+          <h1>Watch Wishlist</h1>
+        </div>
+        <div class="summary">
+          <div class="summary-item">
+            <span>Wishlist total</span>
+            <strong>${total}</strong>
+          </div>
+          <div class="summary-item">
+            <span>Saved watches</span>
+            <strong>${count}</strong>
+          </div>
+        </div>
+        <div class="alternate-links">
+          <a class="pill" href="${escapeHtml(shareUrl)}">Open in Cabinet →</a>
+          <a class="pill" href="${escapeHtml(textUrl)}">Plain text</a>
+          <a class="pill" href="${escapeHtml(mdUrl)}">Markdown</a>
+          <a class="pill" href="${escapeHtml(jsonUrl)}">JSON</a>
+        </div>
+      </header>
+      ${watchCards}
     </main>
   </body>
 </html>`;
