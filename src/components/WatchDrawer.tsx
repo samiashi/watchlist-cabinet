@@ -23,7 +23,6 @@ export function WatchDrawer({
 }) {
   const drawerRef = useFocusTrap(true);
   const touchStartY = useRef<number | null>(null);
-  const touchStartTime = useRef<number | null>(null);
 
   useEffect(() => {
     clearPendingImageFiles();
@@ -60,16 +59,18 @@ export function WatchDrawer({
         if (event.target === event.currentTarget) onClose();
       }}
       onTouchStart={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest(".drawer-body")) {
+          touchStartY.current = null;
+          return;
+        }
         touchStartY.current = event.changedTouches[0]?.clientY ?? null;
-        touchStartTime.current = Date.now();
       }}
       onTouchEnd={(event) => {
         if (touchStartY.current === null || isSubmitting) return;
         const delta = touchStartY.current - (event.changedTouches[0]?.clientY ?? touchStartY.current);
-        const elapsed = Date.now() - (touchStartTime.current ?? 0);
         touchStartY.current = null;
-        touchStartTime.current = null;
-        if (Math.abs(delta) < 80 || elapsed > 400) return;
+        if (Math.abs(delta) < 80) return;
         onClose();
       }}
     >
