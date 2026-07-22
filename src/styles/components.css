@@ -1087,18 +1087,18 @@
   overflow: auto;
   padding: 18px;
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 10px;
 }
 
 .field {
   display: grid;
-  gap: 7px;
+  gap: 5px;
 }
 
 .field.is-wide {
