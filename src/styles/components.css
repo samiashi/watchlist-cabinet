@@ -526,6 +526,12 @@
   aspect-ratio: 4 / 5;
 }
 
+@media (min-width: 841px) {
+  .shelf-visual {
+    aspect-ratio: 1 / 1;
+  }
+}
+
 .shelf-visual.is-loading {
   position: relative;
 }
