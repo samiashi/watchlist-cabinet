@@ -97,7 +97,7 @@
   .tabs {
     width: auto;
     max-width: 100%;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     display: flex;
     gap: 3px;
   }
@@ -172,15 +172,11 @@
   }
 
   .board-header {
-    padding: 7px 0 13px;
+    padding: 0 0 13px;
     border-bottom: 0;
     align-items: flex-start;
     gap: 11px;
     flex-wrap: wrap;
-  }
-
-  .section-title {
-    font-size: 20px;
   }
 
   .watch-grid {

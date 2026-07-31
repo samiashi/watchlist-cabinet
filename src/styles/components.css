@@ -292,29 +292,12 @@
 }
 
 .board-header {
-  padding: 15px;
-  border-bottom: 1px solid var(--line);
+  padding: 0 15px 15px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.section-title {
-  margin: 0;
-  color: var(--ink);
-  font-size: 18px;
-  line-height: 1.16;
-  font-weight: 720;
-}
-
-.section-meta {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-  font-weight: 540;
 }
 
 .collection-controls {
@@ -385,12 +368,12 @@
   content: "";
   position: absolute;
   right: 11px;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
+  width: 5px;
+  height: 5px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
   pointer-events: none;
-  transform: translateY(-2px) rotate(45deg);
+  transform: translateY(-1px) rotate(45deg);
 }
 
 .sort-control select {

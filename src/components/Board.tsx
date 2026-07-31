@@ -3,7 +3,7 @@ import { DragDropProvider, DragOverlay, PointerSensor, type DragEndEvent } from 
 import { PointerActivationConstraints } from "@dnd-kit/dom";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { ArrowDownUp, BadgeCheck, Banknote, Check, Clock, GripVertical, Grid3X3, Heart, Plus, Watch as WatchIcon, RotateCw, Ruler } from "lucide-react";
-import { formatCurrency, formatWatchCount, getDomain } from "../lib/formatters";
+import { formatCurrency, getDomain } from "../lib/formatters";
 import { getWatchImages, makeWatchImage } from "../lib/watchImages";
 import { formatCaseSize } from "../hooks/watchHelpers";
 import type { CabinetFilters, Watch, WatchCategory, WatchStatus } from "../lib/types";
@@ -51,10 +51,6 @@ export function Board({
   return (
     <section className="board" aria-label="Watch collection">
       <div className="board-header">
-        <div>
-          <h2 className="section-title">Collection</h2>
-          <p className="section-meta">{canReorder ? "Drag cards to set the default order" : `${formatWatchCount(watches.length)} saved`}</p>
-        </div>
         <div className="collection-controls">
           <StatusTabs tab={filters.tab} onChange={(tab) => onFilterChange({ tab })} />
           <SortSelect sort={filters.sort} onChange={(sort) => onFilterChange({ sort })} />
