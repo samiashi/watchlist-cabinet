@@ -8,7 +8,7 @@
   margin: 0 auto;
   padding: 22px 24px 32px;
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .workspace > * {
@@ -286,12 +286,12 @@
 }
 
 .board {
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
 }
 
 .board-header {
-  padding: 0 15px 8px;
+  padding: 0 0 16px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -400,7 +400,7 @@
 }
 
 .watch-grid {
-  padding: 0 15px 15px;
+  padding: 0 0 15px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
