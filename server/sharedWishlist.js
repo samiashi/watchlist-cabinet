@@ -76,8 +76,9 @@ export async function loadSharedWishlist(token) {
   }
 
   const rows = watchesResult.data || [];
-  const signedUrlMap = await getSignedImageUrlMap(supabase, supabaseUrl, rows);
-  const watches = rows.map((row) => toSharedWatch(row, signedUrlMap));
+  const ownerId = shareResult.data.user_id;
+  const signedUrlMap = await getSignedImageUrlMap(supabase, supabaseUrl, rows, ownerId);
+  const watches = rows.map((row) => toSharedWatch(row, signedUrlMap, ownerId));
   const wishlistTotal = watches.reduce((total, watch) => total + watch.price, 0);
 
   return {
@@ -156,10 +157,10 @@ export function renderSharedWishlistMarkdown(data, baseUrl, options = {}) {
     lines.push(`- Movement: ${escapeMarkdown(watch.movement || "Not listed")}`);
     lines.push(`- Case size: ${watch.case_size_mm ? `${escapeMarkdown(watch.case_size_mm)} mm` : "Not listed"}`);
     if (watch.reference_number) lines.push(`- Reference: ${escapeMarkdown(watch.reference_number)}`);
-    if (watch.source_url) lines.push(`- Source: <${watch.source_url}>`);
+    if (watch.source_url) lines.push(`- Source: <${escapeMarkdownUrl(watch.source_url)}>`);
     if (options.includeImages !== false && watch.image_urls.length) {
       lines.push("- Images:");
-      watch.image_urls.forEach((url) => lines.push(`  - <${url}>`));
+      watch.image_urls.forEach((url) => lines.push(`  - <${escapeMarkdownUrl(url)}>`));
     }
     lines.push("");
   });
@@ -214,9 +215,9 @@ export function renderMetaWishlistSummary(data) {
   return `${formatWatchCount(data.summary.count)} totaling ${formatCurrency(data.summary.wishlist_total)}: ${watchTitles.join("; ")}`;
 }
 
-function toSharedWatch(row, signedUrlMap) {
+function toSharedWatch(row, signedUrlMap, ownerId) {
   const externalUrls = getExternalImageUrls(row);
-  const signedUrls = getStoragePaths(row).map((path) => signedUrlMap.get(path)).filter(Boolean);
+  const signedUrls = getStoragePaths(row, ownerId).map((path) => signedUrlMap.get(path)).filter(Boolean);
   const imageUrls = normalizeImageUrls([...externalUrls, ...signedUrls]);
 
   return {
@@ -244,8 +245,8 @@ function isMissingDisplayOrderError(error) {
   return error.code === "42703" || String(error.message || "").toLowerCase().includes("display_order");
 }
 
-async function getSignedImageUrlMap(supabase, supabaseUrl, rows) {
-  const allPaths = normalizeAllImagePaths(rows.flatMap((row) => getStoragePaths(row)));
+async function getSignedImageUrlMap(supabase, supabaseUrl, rows, ownerId) {
+  const allPaths = normalizeAllImagePaths(rows.flatMap((row) => getStoragePaths(row, ownerId))).filter((path) => isUserImagePath(path, ownerId));
   const signedUrlMap = new Map();
 
   if (!allPaths.length) return signedUrlMap;
@@ -269,9 +270,17 @@ function getExternalImageUrls(row) {
   return normalizeImageUrls(row.image_urls, row.image_url).filter((url) => !getStorageImagePath(url));
 }
 
-function getStoragePaths(row) {
+function getStoragePaths(row, ownerId) {
   const legacyPaths = normalizeImageUrls(row.image_urls, row.image_url).map(getStorageImagePath).filter(Boolean);
-  return normalizeImagePaths(row.image_paths, legacyPaths);
+  return normalizeImagePaths(row.image_paths, legacyPaths).filter((path) => isUserImagePath(path, ownerId));
+}
+
+function isUserImagePath(path, ownerId) {
+  return typeof ownerId === "string" && path.startsWith(`${ownerId}/`);
+}
+
+function escapeMarkdownUrl(value) {
+  return String(value || "").replace(/[\\<>]/g, "\\$&");
 }
 
 function getSignedUrl(value) {
@@ -328,6 +337,7 @@ export function renderErrorHtml(statusCode, message) {
 
 export function renderSharedWishlistHtml(data, baseUrl) {
   const shareUrl = `${baseUrl}/share/${encodeURIComponent(data.token)}`;
+  const cabinetUrl = `${baseUrl}/`;
   const textUrl = `${shareUrl}.txt`;
   const mdUrl = `${shareUrl}.md`;
   const jsonUrl = `${shareUrl}.json`;
@@ -395,7 +405,7 @@ export function renderSharedWishlistHtml(data, baseUrl) {
           </div>
         </div>
         <div class="alternate-links">
-          <a class="pill" href="${escapeHtml(shareUrl)}">Open in Cabinet →</a>
+          <a class="pill" href="${escapeHtml(cabinetUrl)}">Open Cabinet →</a>
           <a class="pill" href="${escapeHtml(textUrl)}">Plain text</a>
           <a class="pill" href="${escapeHtml(mdUrl)}">Markdown</a>
           <a class="pill" href="${escapeHtml(jsonUrl)}">JSON</a>

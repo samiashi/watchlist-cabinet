@@ -171,16 +171,15 @@ export function WatchRow({
       data-watch-id={watch.id}
       style={{ "--card-index": index } as React.CSSProperties}
     >
-      {canReorder ? (
-        <button
-          ref={handleRef}
-          className="reorder-handle"
-          type="button"
-          aria-label={`Reorder ${watch.brand} ${watch.model}`}
-        >
-          <GripVertical size={15} />
-        </button>
-      ) : null}
+      <button
+        ref={handleRef}
+        className="reorder-handle"
+        type="button"
+        aria-label={`Reorder ${watch.brand} ${watch.model}`}
+        disabled={!canReorder}
+      >
+        <GripVertical size={15} />
+      </button>
           <div className={`shelf-visual ${imageLoaded ? "" : "is-loading"}`}>
             <div className="row-thumb">
               <button

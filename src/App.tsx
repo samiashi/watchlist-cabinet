@@ -1,26 +1,27 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Route, Switch } from "wouter";
 import { getOrCreateShareLink, loadCloudSnapshot } from "./lib/cloudStorage";
-import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { isSupabaseConfigured } from "./lib/supabase";
 import type { Watch } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
 import { useConfirm } from "./hooks/useConfirm";
 import { useFilters } from "./hooks/useFilters";
 import { useToast } from "./hooks/useToast";
 import { useWatches } from "./hooks/useWatches";
-import { loadLocalSnapshot, saveLocalSnapshot } from "./lib/localStorage";
+import { loadLocalSnapshot, loadStoredFilters, saveLocalSnapshot, saveStoredFilters } from "./lib/localStorage";
 import { AnimatedPresence } from "./components/AnimatedPresence";
 import { AuthGate } from "./components/AuthGate";
 import { Board } from "./components/Board";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { ImagePreview } from "./components/ImagePreview";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { MobileSummary } from "./components/MobileSummary";
-import { SharedWishlistPage } from "./components/SharedWishlistPage";
 import { ToastContainer } from "./components/ToastContainer";
 import { Topbar } from "./components/Topbar";
-import { WatchDrawer } from "./components/WatchDrawer";
+
+const ImagePreview = lazy(() => import("./components/ImagePreview").then((module) => ({ default: module.ImagePreview })));
+const SharedWishlistPage = lazy(() => import("./components/SharedWishlistPage").then((module) => ({ default: module.SharedWishlistPage })));
+const WatchDrawer = lazy(() => import("./components/WatchDrawer").then((module) => ({ default: module.WatchDrawer })));
 
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
 
@@ -30,16 +31,18 @@ type PreviewState = { watch: Watch; imageIndex: number };
 function App() {
   return (
     <ErrorBoundary>
-      <Switch>
-        <Route path="/share/:token" component={SharedWishlistPage} />
-        <Route>{() => <CabinetApp />}</Route>
-      </Switch>
+      <Suspense fallback={<LoadingScreen />}>
+        <Switch>
+          <Route path="/share/:token" component={SharedWishlistPage} />
+          <Route>{() => <CabinetApp />}</Route>
+        </Switch>
+      </Suspense>
     </ErrorBoundary>
   );
 }
 
 function CabinetApp() {
-  const { session, setSession, authMessage, setAuthMessage, signInWithGoogle } = useAuth();
+  const { session, authMessage, signInWithGoogle, signOut, isAuthLoading } = useAuth();
   const cloudUser = session?.user || null;
   const { toasts, showToast } = useToast();
   const { confirmDialog, setConfirmDialog, confirmAction } = useConfirm();
@@ -48,56 +51,64 @@ function CabinetApp() {
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, editingId: null });
   const [previewWatch, setPreviewWatch] = useState<PreviewState | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isCloudLoading, setIsCloudLoading] = useState(isSupabaseConfigured);
+  const [cloudLoadError, setCloudLoadError] = useState("");
+  const [cloudRetry, setCloudRetry] = useState(0);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
-      const snapshot = loadLocalSnapshot();
-      setWatches(snapshot.watches);
-      setFilters(snapshot.filters);
-      setIsLoaded(true);
+    if (isSupabaseConfigured) return;
+    const snapshot = loadLocalSnapshot();
+    setWatches(snapshot.watches);
+    setFilters(snapshot.filters);
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || isAuthLoading) return;
+    setIsLoaded(true);
+  }, [isAuthLoading]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !cloudUser) return;
+    const storedFilters = loadStoredFilters(cloudUser.id);
+    setFilters(storedFilters || { tab: "all", query: "", sort: "relevance" });
+  }, [cloudUser?.id]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isLoaded || !cloudUser) return;
+    saveStoredFilters(cloudUser.id, filters);
+  }, [cloudUser?.id, filters, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || !cloudUser || !isSupabaseConfigured) {
+      if (!cloudUser) setIsCloudLoading(false);
       return;
     }
 
     let active = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setIsLoaded(true);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      if (nextSession) setAuthMessage("");
-    });
-
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded || !cloudUser) return;
-
-    let active = true;
+    setIsCloudLoading(true);
+    setCloudLoadError("");
 
     loadCloudSnapshot(cloudUser)
       .then((snapshot) => {
         if (!active) return;
         setWatches(snapshot.watches);
-        setFilters(snapshot.filters);
+        setCloudLoadError("");
+        setIsCloudLoading(false);
       })
       .catch((error: Error) => {
         if (!active) return;
-        showToast(`Could not load Supabase data: ${error.message}`);
+        if (import.meta.env.DEV) console.error("Could not load Supabase data", error);
+        setCloudLoadError("Cloud data could not be loaded. Check your connection and try again.");
+        setIsCloudLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [cloudUser, isLoaded]);
+  }, [cloudUser, isLoaded, cloudRetry]);
 
   useEffect(() => {
     if (!isLoaded || isSupabaseConfigured) return;
@@ -114,8 +125,8 @@ function CabinetApp() {
     try {
       const token = await getOrCreateShareLink(cloudUser);
       const url = `${getAppBaseUrl()}/share/${token}`;
-      await copyShareUrl(url);
-      showToast("Wishlist link copied.");
+      const copied = await copyShareUrl(url);
+      showToast(copied ? "Wishlist link copied." : "Copy cancelled.");
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Wishlist link was not created.");
     } finally {
@@ -129,6 +140,17 @@ function CabinetApp() {
 
   function closeDrawer() {
     setDrawer({ open: false, editingId: null });
+  }
+
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not sign out. Try again.");
+    } finally {
+      setIsSigningOut(false);
+    }
   }
 
   useEffect(() => {
@@ -151,12 +173,20 @@ function CabinetApp() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  if (!isLoaded) {
+  if (!isLoaded || isAuthLoading) {
     return <LoadingScreen />;
   }
 
   if (isSupabaseConfigured && !session) {
     return <AuthGate message={authMessage} onSignIn={signInWithGoogle} />;
+  }
+
+  if (isSupabaseConfigured && cloudLoadError) {
+    return <CloudLoadError message={cloudLoadError} onRetry={() => setCloudRetry((value) => value + 1)} />;
+  }
+
+  if (isSupabaseConfigured && cloudUser && isCloudLoading) {
+    return <LoadingScreen />;
   }
 
   return (
@@ -165,10 +195,13 @@ function CabinetApp() {
         <Topbar
           filters={filters}
           canShare={Boolean(cloudUser)}
+          canSignOut={Boolean(cloudUser)}
           isSharing={isSharing}
+          isSigningOut={isSigningOut}
           summary={summary}
           onAdd={() => openDrawer()}
           onShare={shareWishlist}
+          onSignOut={handleSignOut}
           onQueryChange={(query) => updateFilters({ query })}
         />
         <MobileSummary summary={summary} />
@@ -189,6 +222,7 @@ function CabinetApp() {
           editing={drawer.editingId ? watches.find((watch) => watch.id === drawer.editingId) || null : null}
           filters={filters}
           isSubmitting={isSavingWatch}
+          canUploadImages={Boolean(cloudUser)}
           onClose={closeDrawer}
           onSubmit={(event) => handleWatchFormSubmit(event, drawer.editingId, closeDrawer)}
         />
@@ -236,11 +270,29 @@ function getAppBaseUrl() {
 
 async function copyShareUrl(url: string) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(url);
-    return;
+    try {
+      await navigator.clipboard.writeText(url);
+      return true;
+    } catch {
+      // Fall through to the manual copy prompt when the browser blocks clipboard access.
+    }
   }
 
-  window.prompt("Copy wishlist link", url);
+  return window.prompt("Copy wishlist link", url) !== null;
+}
+
+function CloudLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <main className="auth-shell" aria-label="Could not load cabinet">
+      <div className="auth-card" style={{ textAlign: "center" }}>
+        <h1>Could not load Cabinet</h1>
+        <p style={{ color: "var(--muted)", fontSize: "14px", lineHeight: 1.5 }}>{message}</p>
+        <button className="button button-primary" type="button" onClick={onRetry} style={{ width: "100%", height: "46px" }}>
+          Try again
+        </button>
+      </div>
+    </main>
+  );
 }
 
 export default App;

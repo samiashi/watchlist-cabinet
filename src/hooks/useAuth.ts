@@ -11,19 +11,29 @@ function getAppBaseUrl() {
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [authMessage, setAuthMessage] = useState("");
+  const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase) {
+      setIsAuthLoading(false);
+      return;
+    }
 
     let active = true;
 
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       setSession(data.session);
+      setIsAuthLoading(false);
+    }).catch(() => {
+      if (!active) return;
+      setAuthMessage("Cabinet sign-in could not be checked. Try again.");
+      setIsAuthLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      setIsAuthLoading(false);
       if (nextSession) setAuthMessage("");
     });
 
@@ -62,5 +72,17 @@ export function useAuth() {
     if (error) setAuthMessage("Google sign-in could not start.");
   }
 
-  return { session, setSession, authMessage, setAuthMessage, signInWithGoogle };
+  async function signOut() {
+    if (!supabase) return;
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthMessage("Could not sign out. Try again.");
+      throw error;
+    }
+
+    setSession(null);
+  }
+
+  return { session, setSession, authMessage, setAuthMessage, signInWithGoogle, signOut, isAuthLoading };
 }

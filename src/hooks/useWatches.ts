@@ -20,7 +20,8 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
   const [isSavingWatch, setIsSavingWatch] = useState(false);
   const isSavingWatchRef = useRef(false);
 
-  function saveWatch(watch: Watch) {
+  async function saveWatch(watch: Watch) {
+    const previous = watches;
     setWatches((current) => {
       const exists = current.some((item) => item.id === watch.id);
       return exists
@@ -28,10 +29,13 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
         : [watch, ...current];
     });
 
-    if (cloudUser) {
-      upsertCloudWatch(cloudUser, watch).catch((error) => {
-        showToast(error instanceof Error ? error.message : "Watch was not saved.");
-      });
+    if (!cloudUser) return;
+
+    try {
+      await upsertCloudWatch(cloudUser, watch);
+    } catch (error) {
+      setWatches(previous);
+      throw error;
     }
   }
 
@@ -47,9 +51,9 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
 
     try {
       if (cloudUser) {
-        await deleteCloudWatch(id);
+        await deleteCloudWatch(cloudUser, id);
         if (watch.imagePaths.length) {
-          void deleteWatchImages(watch.imagePaths).catch((error) => {
+          void deleteWatchImages(watch.imagePaths, cloudUser.id).catch((error) => {
             console.warn("Could not delete watch images", error);
           });
         }
@@ -87,6 +91,8 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
     isSavingWatchRef.current = true;
     setIsSavingWatch(true);
 
+    let uploadedImagePaths: string[] = [];
+
     try {
       const form = new FormData(event.currentTarget);
       const existing = editingId ? watches.find((watch) => watch.id === editingId) : null;
@@ -115,15 +121,8 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
         return;
       }
 
-      let uploadedImagePaths: string[] = [];
-
       if (imageFiles.length && cloudUser) {
-        try {
-          uploadedImagePaths = await uploadWatchImages(cloudUser, id, imageFiles);
-        } catch (error) {
-          showToast(error instanceof Error ? error.message : "Images were not uploaded.");
-          return;
-        }
+        uploadedImagePaths = await uploadWatchImages(cloudUser, id, imageFiles);
       }
 
       const uploadedPathById = new Map(getFormImageUploadIds(form).map((uploadId, index) => [uploadId, uploadedImagePaths[index] || ""]));
@@ -138,12 +137,7 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
       let signedImageUrls: string[] = [];
 
       if (imagePaths.length && cloudUser) {
-        try {
-          signedImageUrls = await signWatchImagePaths(imagePaths);
-        } catch (error) {
-          showToast(error instanceof Error ? error.message : "Images were not prepared.");
-          return;
-        }
+        signedImageUrls = await signWatchImagePaths(imagePaths, cloudUser.id);
       }
 
       const allImageUrls = normalizeImageUrls(signedImageUrls, null, makeWatchImage(category, id));
@@ -167,23 +161,21 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
         updatedAt: new Date().toISOString()
       };
 
-      try {
-        await saveWatch(watch);
-        if (removedImagePaths.length) {
-          void deleteWatchImages(removedImagePaths).catch((error) => {
-            console.warn("Could not delete removed watch images", error);
-          });
-        }
-        closeDrawer();
-        showToast(existing ? "Watch updated." : "Watch added.");
-      } catch (error) {
-        if (uploadedImagePaths.length) {
-          void deleteWatchImages(uploadedImagePaths).catch((deleteError) => {
-            console.warn("Could not clean up unsaved watch images", deleteError);
-          });
-        }
-        showToast(error instanceof Error ? error.message : "Watch was not saved.");
+      await saveWatch(watch);
+      if (removedImagePaths.length && cloudUser) {
+        void deleteWatchImages(removedImagePaths, cloudUser.id).catch((error) => {
+          console.warn("Could not delete removed watch images", error);
+        });
       }
+      closeDrawer();
+      showToast(existing ? "Watch updated." : "Watch added.");
+    } catch (error) {
+      if (uploadedImagePaths.length && cloudUser) {
+        void deleteWatchImages(uploadedImagePaths, cloudUser.id).catch((deleteError) => {
+          console.warn("Could not clean up unsaved watch images", deleteError);
+        });
+      }
+      showToast(error instanceof Error ? error.message : "Watch was not saved.");
     } finally {
       isSavingWatchRef.current = false;
       setIsSavingWatch(false);

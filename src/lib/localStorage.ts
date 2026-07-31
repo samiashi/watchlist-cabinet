@@ -1,9 +1,10 @@
 import { sampleWatches } from "./sampleData";
-import { categories, movements, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus, type WatchTab, type WatchSort } from "./types";
+import { categories, movements, type CabinetFilters, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus, type WatchTab, type WatchSort } from "./types";
 import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
 
 const STORAGE_KEY = "watchlist-cabinet-state-v4";
 const LEGACY_STORAGE_KEYS = ["watchlist-cabinet-state-v3", "watchlist-cabinet-state-v2"];
+const CLOUD_FILTERS_KEY_PREFIX = "watchlist-cabinet-filters-v1:";
 
 const fallbackSnapshot: CabinetSnapshot = {
   watches: sampleWatches,
@@ -35,6 +36,25 @@ export function loadLocalSnapshot(): CabinetSnapshot {
 
 export function saveLocalSnapshot(snapshot: CabinetSnapshot) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+export function loadStoredFilters(ownerId: string): CabinetFilters | null {
+  try {
+    const raw = localStorage.getItem(`${CLOUD_FILTERS_KEY_PREFIX}${ownerId}`);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as Partial<CabinetFilters>;
+    return {
+      tab: normalizeTab(saved.tab),
+      query: typeof saved.query === "string" ? saved.query : "",
+      sort: normalizeSort(saved.sort)
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredFilters(ownerId: string, filters: CabinetFilters) {
+  localStorage.setItem(`${CLOUD_FILTERS_KEY_PREFIX}${ownerId}`, JSON.stringify(filters));
 }
 
 function normalizeStoredWatch(watch: Partial<Watch>, index: number): Watch {
@@ -82,7 +102,7 @@ function normalizeTab(value: unknown): WatchTab {
 }
 
 function normalizeSort(value: unknown): WatchSort {
-  return value === "price-desc" || value === "price-asc" || value === "relevance" ? value : "relevance";
+  return value === "price-desc" || value === "price-asc" || value === "newest" || value === "relevance" ? value : "relevance";
 }
 
 function normalizeDisplayOrder(value: unknown, index: number) {

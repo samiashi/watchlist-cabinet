@@ -1,21 +1,27 @@
-import { BadgeCheck, Loader2, Plus, Search, Share2, ShoppingBag, X } from "lucide-react";
+import { BadgeCheck, Loader2, LogOut, Plus, Search, Share2, ShoppingBag, X } from "lucide-react";
 import { formatCurrency, formatWatchCount } from "../lib/formatters";
 import type { CabinetFilters, CabinetSummary } from "../lib/types";
 
 export function Topbar({
   filters,
   canShare,
+  canSignOut,
   isSharing,
+  isSigningOut,
   onAdd,
   onShare,
+  onSignOut,
   onQueryChange,
   summary
 }: {
   filters: CabinetFilters;
   canShare: boolean;
+  canSignOut: boolean;
   isSharing: boolean;
+  isSigningOut: boolean;
   onAdd: () => void;
   onShare: () => void;
+  onSignOut: () => void;
   onQueryChange: (query: string) => void;
   summary: CabinetSummary;
 }) {
@@ -41,6 +47,11 @@ export function Topbar({
           {canShare ? (
             <button className="button button-icon mobile-share-button" type="button" onClick={onShare} disabled={isSharing} aria-label="Share wishlist">
               {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
+            </button>
+          ) : null}
+          {canSignOut ? (
+            <button className="button button-icon mobile-signout-button" type="button" onClick={onSignOut} disabled={isSigningOut} aria-label="Sign out">
+              {isSigningOut ? <Loader2 className="spin" size={17} /> : <LogOut size={17} />}
             </button>
           ) : null}
           <button className="button button-primary mobile-add-button" type="button" onClick={onAdd}>
@@ -71,6 +82,12 @@ export function Topbar({
           <button className="button topbar-desktop-action" type="button" onClick={onShare} disabled={isSharing}>
             {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
             <span>Share</span>
+          </button>
+        ) : null}
+        {canSignOut ? (
+          <button className="button topbar-desktop-action" type="button" onClick={onSignOut} disabled={isSigningOut}>
+            {isSigningOut ? <Loader2 className="spin" size={17} /> : <LogOut size={17} />}
+            <span>Sign out</span>
           </button>
         ) : null}
         <button className="button button-primary topbar-desktop-action" type="button" onClick={onAdd}>

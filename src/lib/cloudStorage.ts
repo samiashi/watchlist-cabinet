@@ -53,10 +53,12 @@ export async function loadCloudSnapshot(user: User): Promise<CabinetSnapshot> {
   }
 
   if (watchesResult.error) throw watchesResult.error;
-  const watches = ((watchesResult.data || []) as WatchRow[]).map((row, index) => fromWatchRow(row, index));
+  const watches = ((watchesResult.data || []) as WatchRow[])
+    .map((row, index) => fromWatchRow(row, index))
+    .map((watch) => ({ ...watch, imagePaths: watch.imagePaths.filter((path) => isUserImagePath(path, user.id)) }));
 
   return {
-    watches: await withSignedStorageImages(watches),
+    watches: await withSignedStorageImages(watches, user.id),
     filters: { tab: "all", query: "", sort: "relevance" }
   };
 }
@@ -87,29 +89,46 @@ export async function updateCloudWatchOrder(user: User, watches: Watch[]) {
   if (!client) throw new Error("Supabase is not configured.");
 
   const updatedAt = new Date().toISOString();
-  const updates = watches.map((watch, index) =>
-    client
-      .from("watches")
-      .update({
-        display_order: getDisplayOrderForIndex(index),
-        updated_at: updatedAt
-      })
-      .eq("id", watch.id)
-      .eq("user_id", user.id)
-  );
+  const previousOrders = new Map(watches.map((watch) => [watch.id, watch.displayOrder]));
+  const updatedIds: string[] = [];
 
-  const results = await Promise.all(updates);
-  const failed = results.find((result) => result.error);
-  if (isMissingDisplayOrderError(failed?.error)) {
-    throw new Error("Run the Supabase display_order migration before saving custom watch order.");
+  try {
+    for (const [index, watch] of watches.entries()) {
+      const result = await client
+        .from("watches")
+        .update({
+          display_order: getDisplayOrderForIndex(index),
+          updated_at: updatedAt
+        })
+        .eq("id", watch.id)
+        .eq("user_id", user.id);
+
+      if (isMissingDisplayOrderError(result.error)) {
+        throw new Error("Run the Supabase display_order migration before saving custom watch order.");
+      }
+      if (result.error) throw result.error;
+      updatedIds.push(watch.id);
+    }
+  } catch (error) {
+    await Promise.all(
+      updatedIds.map(async (id) => {
+        const displayOrder = previousOrders.get(id);
+        if (!Number.isFinite(displayOrder)) return;
+        await client
+          .from("watches")
+          .update({ display_order: displayOrder, updated_at: updatedAt })
+          .eq("id", id)
+          .eq("user_id", user.id);
+      })
+    );
+    throw error;
   }
-  if (failed?.error) throw failed.error;
 }
 
-export async function deleteCloudWatch(id: string) {
+export async function deleteCloudWatch(user: User, id: string) {
   if (!supabase) throw new Error("Supabase is not configured.");
 
-  const { error } = await supabase.from("watches").delete().eq("id", id);
+  const { error } = await supabase.from("watches").delete().eq("id", id).eq("user_id", user.id);
   if (error) throw error;
 }
 
@@ -118,25 +137,35 @@ export async function uploadWatchImages(user: User, watchId: string, files: File
   if (!client) throw new Error("Supabase is not configured.");
   if (!files.length) return [];
 
-  const uploads = files.slice(0, maxWatchImages).map(async (file, index) => {
-    const path = `${user.id}/${watchId}/${Date.now()}-${index}-${cleanFileName(file.name)}`;
-    const { error } = await client.storage.from(watchImageBucket).upload(path, file, {
-      cacheControl: "31536000",
-      contentType: getImageContentType(file),
-      upsert: false
-    });
+  const uploadedPaths: string[] = [];
 
-    if (error) throw new Error(`Image upload failed: ${error.message}`);
+  try {
+    for (const [index, file] of files.slice(0, maxWatchImages).entries()) {
+      const path = `${user.id}/${watchId}/${Date.now()}-${index}-${cleanFileName(file.name)}`;
+      const { error } = await client.storage.from(watchImageBucket).upload(path, file, {
+        cacheControl: "31536000",
+        contentType: getImageContentType(file),
+        upsert: false
+      });
 
-    return path;
-  });
+      if (error) throw new Error(`Image upload failed: ${error.message}`);
+      uploadedPaths.push(path);
+    }
 
-  return Promise.all(uploads);
+    return uploadedPaths;
+  } catch (error) {
+    if (uploadedPaths.length) {
+      await deleteWatchImages(uploadedPaths, user.id).catch((cleanupError) => {
+        console.warn("Could not clean up partially uploaded watch images", cleanupError);
+      });
+    }
+    throw error;
+  }
 }
 
-export async function deleteWatchImages(paths: string[]) {
+export async function deleteWatchImages(paths: string[], ownerId?: string) {
   const client = supabase;
-  const imagePaths = normalizeAllImagePaths(paths);
+  const imagePaths = normalizeAllImagePaths(paths).filter((path) => !ownerId || isUserImagePath(path, ownerId));
   if (!client || !imagePaths.length) return;
 
   const { error } = await client.storage.from(watchImageBucket).remove(imagePaths);
@@ -213,7 +242,7 @@ function toWatchRow(user: User, watch: Watch): WatchRow {
     .filter((url) => !url.startsWith("data:"))
     .filter((url) => !isStorageImageUrl(url))
     .slice(0, maxWatchImages);
-  const imagePaths = normalizeImagePaths(watch.imagePaths, legacyStoragePaths);
+  const imagePaths = normalizeImagePaths(watch.imagePaths, legacyStoragePaths).filter((path) => isUserImagePath(path, user.id));
 
   return {
     id: watch.id,
@@ -236,9 +265,9 @@ function toWatchRow(user: User, watch: Watch): WatchRow {
   };
 }
 
-export async function signWatchImagePaths(paths: string[]) {
+export async function signWatchImagePaths(paths: string[], ownerId?: string) {
   const client = supabase;
-  const imagePaths = normalizeAllImagePaths(paths);
+  const imagePaths = normalizeAllImagePaths(paths).filter((path) => !ownerId || isUserImagePath(path, ownerId));
   if (!client || !imagePaths.length) return [];
 
   const { data, error } = await client.storage.from(watchImageBucket).createSignedUrls(imagePaths, signedImageExpiresIn);
@@ -251,8 +280,8 @@ export async function signWatchImagePaths(paths: string[]) {
   });
 }
 
-async function withSignedStorageImages(watches: Watch[]) {
-  const paths = normalizeAllImagePaths(watches.flatMap((watch) => watch.imagePaths));
+async function withSignedStorageImages(watches: Watch[], ownerId: string) {
+  const paths = normalizeAllImagePaths(watches.flatMap((watch) => watch.imagePaths)).filter((path) => isUserImagePath(path, ownerId));
   if (!paths.length) return watches;
 
   const signedUrlMap = new Map<string, string>();
@@ -263,7 +292,10 @@ async function withSignedStorageImages(watches: Watch[]) {
 
   return watches.map((watch) => {
     const externalUrls = watch.imageUrls.filter((url) => !url.startsWith("data:"));
-    const signedWatchUrls = watch.imagePaths.map((path) => signedUrlMap.get(path) || "").filter(Boolean);
+    const signedWatchUrls = watch.imagePaths
+      .filter((path) => isUserImagePath(path, ownerId))
+      .map((path) => signedUrlMap.get(path) || "")
+      .filter(Boolean);
     const imageUrls = normalizeImageUrls([...externalUrls, ...signedWatchUrls], null, makeWatchImage(watch.category, watch.id));
 
     return {
@@ -341,4 +373,8 @@ function isMissingDisplayOrderError(error: unknown) {
   if (!error || typeof error !== "object") return false;
   const item = error as { code?: unknown; message?: unknown };
   return item.code === "42703" || String(item.message || "").toLowerCase().includes("display_order");
+}
+
+function isUserImagePath(path: string, userId: string) {
+  return path.startsWith(`${userId}/`);
 }

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, LinkIcon, Pencil, Trash2, X } from "lucide-r
 import { getDomain, normalizeUrl } from "../lib/formatters";
 import { getWatchImages, makeWatchImage } from "../lib/watchImages";
 import type { Watch } from "../lib/types";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 export function ImagePreview({
   watch,
@@ -21,6 +22,7 @@ export function ImagePreview({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageLoaded, setImageLoaded] = useState(false);
   const touchStartX = useRef<number | null>(null);
+  const dialogRef = useFocusTrap(true);
   const imageUrl = images[selectedImageIndex] || images[0] || makeWatchImage(watch.category, watch.id);
   const sourceDomain = getDomain(watch.sourceUrl);
   const hasMultipleImages = images.length > 1;
@@ -54,6 +56,14 @@ export function ImagePreview({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [hasMultipleImages, images.length, onClose]);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
     <div
       className="image-preview-backdrop"
@@ -64,11 +74,11 @@ export function ImagePreview({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="image-preview-dialog">
+      <div className="image-preview-dialog" ref={dialogRef} aria-labelledby="imagePreviewTitle">
         <div className="image-preview-header">
           <div>
             <p>{watch.brand}</p>
-            <h2>{watch.model}</h2>
+            <h2 id="imagePreviewTitle">{watch.model}</h2>
           </div>
           <div className="image-preview-actions">
             <a className="preview-source-link" href={normalizeUrl(watch.sourceUrl)} target="_blank" rel="noreferrer">

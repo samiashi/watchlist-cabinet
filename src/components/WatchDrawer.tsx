@@ -12,12 +12,14 @@ export function WatchDrawer({
   editing,
   filters,
   isSubmitting,
+  canUploadImages,
   onClose,
   onSubmit
 }: {
   editing: Watch | null;
   filters: CabinetFilters;
   isSubmitting: boolean;
+  canUploadImages: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
@@ -32,6 +34,15 @@ export function WatchDrawer({
       document.body.style.overflow = previousOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isSubmitting) onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isSubmitting, onClose]);
 
   const watch = editing || {
     brand: "",
@@ -54,6 +65,9 @@ export function WatchDrawer({
     <div
       ref={drawerRef}
       className="drawer-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="watchDrawerTitle"
       onClick={(event) => {
         if (isSubmitting) return;
         if (event.target === event.currentTarget) onClose();
@@ -76,7 +90,7 @@ export function WatchDrawer({
     >
       <form className="drawer" id="watchForm" aria-label={editing ? "Edit watch" : "Add watch"} onSubmit={onSubmit}>
         <div className="drawer-header">
-          <h2 className="drawer-title">{editing ? "Edit watch" : "Add watch"}</h2>
+          <h2 className="drawer-title" id="watchDrawerTitle">{editing ? "Edit watch" : "Add watch"}</h2>
           <button className="button button-icon" type="button" onClick={onClose} disabled={isSubmitting} aria-label="Close drawer">
             <X size={18} />
           </button>
@@ -87,7 +101,17 @@ export function WatchDrawer({
               <LinkIcon size={15} />
               Watch page URL
             </label>
-            <input id="sourceUrl" name="sourceUrl" type="url" defaultValue={watch.sourceUrl} placeholder="https://shop.example.com/watch-page" required />
+            <input
+              id="sourceUrl"
+              name="sourceUrl"
+              type="text"
+              inputMode="url"
+              autoCapitalize="none"
+              spellCheck={false}
+              defaultValue={watch.sourceUrl}
+              placeholder="shop.example.com/watch-page"
+              required
+            />
           </div>
           <div className="form-grid">
             <div className="field">
@@ -158,6 +182,7 @@ export function WatchDrawer({
                 type="number"
                 min="0"
                 step="0.1"
+                max="999.9"
                 defaultValue={watch.caseSize ? String(watch.caseSize) : ""}
                 placeholder="40"
                 inputMode="decimal"
@@ -168,15 +193,17 @@ export function WatchDrawer({
                 <Banknote size={15} />
                 Price (AED)
               </label>
-              <input id="price" name="price" type="number" min="0" step="1" defaultValue={String(watch.price ?? "")} placeholder="9200" inputMode="decimal" required />
+              <input id="price" name="price" type="number" min="0" max="9999999999.99" step="0.01" defaultValue={String(watch.price ?? "")} placeholder="9200" inputMode="decimal" required />
             </div>
             <div className="field is-wide">
               <label>
                 <Images size={15} />
                 Images
               </label>
-              <ImageManager initialImages={initialImages} />
-              <p className="field-help">Uploaded files stay private and are shown through short-lived signed URLs.</p>
+              <ImageManager initialImages={initialImages} canUploadImages={canUploadImages} />
+              <p className="field-help">
+                {canUploadImages ? "Uploaded files stay private and are shown through short-lived signed URLs." : "Sign in with Google to upload private watch images."}
+              </p>
             </div>
           </div>
         </div>
@@ -194,7 +221,7 @@ export function WatchDrawer({
   );
 }
 
-function ImageManager({ initialImages }: { initialImages: ManagedImage[] }) {
+function ImageManager({ initialImages, canUploadImages }: { initialImages: ManagedImage[]; canUploadImages: boolean }) {
   const [images, setImages] = useState<ManagedImage[]>(initialImages);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imagesRef = useRef(images);
@@ -319,9 +346,9 @@ function ImageManager({ initialImages }: { initialImages: ManagedImage[] }) {
         </div>
       )}
 
-      <label className={`upload-target ${remainingSlots <= 0 ? "is-disabled" : ""}`} htmlFor="imageFiles">
+      <label className={`upload-target ${remainingSlots <= 0 || !canUploadImages ? "is-disabled" : ""}`} htmlFor="imageFiles">
         <Upload size={16} />
-        <span>{remainingSlots > 0 ? `Upload images (${remainingSlots} left)` : "Image limit reached"}</span>
+        <span>{!canUploadImages ? "Sign in to upload images" : remainingSlots > 0 ? `Upload images (${remainingSlots} left)` : "Image limit reached"}</span>
       </label>
       <input
         ref={fileInputRef}
@@ -331,7 +358,7 @@ function ImageManager({ initialImages }: { initialImages: ManagedImage[] }) {
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
         multiple
-        disabled={remainingSlots <= 0}
+        disabled={remainingSlots <= 0 || !canUploadImages}
         onChange={(event) => {
           addFiles(event.currentTarget.files);
           event.currentTarget.value = "";

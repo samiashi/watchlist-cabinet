@@ -94,7 +94,7 @@ export function escapeHtml(value) {
 }
 
 export function escapeMarkdown(value) {
-  return String(value ?? "").replace(/[\\`*_{}[\]()#+\-.!|]/g, "\\$&");
+  return String(value ?? "").replace(/[\\`*_{}[\]()#+\-.!|<>]/g, "\\$&");
 }
 
 export function getStorageImagePath(value) {
