@@ -14,14 +14,14 @@ import { AuthGate } from "./components/AuthGate";
 import { Board } from "./components/Board";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ImagePreview } from "./components/ImagePreview";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { MobileSummary } from "./components/MobileSummary";
+import { WatchDrawer } from "./components/WatchDrawer";
 import { ToastContainer } from "./components/ToastContainer";
 import { Topbar } from "./components/Topbar";
 
-const ImagePreview = lazy(() => import("./components/ImagePreview").then((module) => ({ default: module.ImagePreview })));
 const SharedWishlistPage = lazy(() => import("./components/SharedWishlistPage").then((module) => ({ default: module.SharedWishlistPage })));
-const WatchDrawer = lazy(() => import("./components/WatchDrawer").then((module) => ({ default: module.WatchDrawer })));
 
 const siteUrl = import.meta.env.VITE_SITE_URL?.trim();
 
@@ -31,13 +31,19 @@ type PreviewState = { watch: Watch; imageIndex: number };
 function App() {
   return (
     <ErrorBoundary>
-      <Suspense fallback={<LoadingScreen />}>
-        <Switch>
-          <Route path="/share/:token" component={SharedWishlistPage} />
-          <Route>{() => <CabinetApp />}</Route>
-        </Switch>
-      </Suspense>
+      <Switch>
+        <Route path="/share/:token" component={SharedWishlistRoute} />
+        <Route>{() => <CabinetApp />}</Route>
+      </Switch>
     </ErrorBoundary>
+  );
+}
+
+function SharedWishlistRoute({ params }: { params: { token: string } }) {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <SharedWishlistPage params={params} />
+    </Suspense>
   );
 }
 
