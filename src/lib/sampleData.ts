@@ -1,5 +1,4 @@
 import type { Watch } from "./types";
-import { makeWatchImage } from "./watchImages";
 
 const watches: Omit<Watch, "imageUrl" | "imageUrls" | "imagePaths" | "referenceNumber" | "displayOrder">[] = [
   {
@@ -79,8 +78,8 @@ const watches: Omit<Watch, "imageUrl" | "imageUrls" | "imagePaths" | "referenceN
 export const sampleWatches: Watch[] = watches.map((watch, index) => ({
   ...watch,
   referenceNumber: "",
-  imageUrl: makeWatchImage(watch.category, index),
-  imageUrls: [makeWatchImage(watch.category, index)],
+  imageUrl: "",
+  imageUrls: [],
   imagePaths: [],
   displayOrder: (index + 1) * 1000
 }));

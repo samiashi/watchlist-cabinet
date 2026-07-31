@@ -12,7 +12,7 @@ import {
 } from "../lib/cloudStorage";
 import { cleanText, createId, normalizeUrl } from "../lib/formatters";
 import { maxWatchImages, type Watch, type WatchCategory, type WatchStatus } from "../lib/types";
-import { makeWatchImage, normalizeImagePaths, normalizeImageUrls } from "../lib/watchImages";
+import { normalizeImagePaths, normalizeImageUrls } from "../lib/watchImages";
 import { formatCaseSize, getFormImageFiles, getFormImageOrder, getFormImageUploadIds, getStoredImageItems, normalizeMovement, sortWatchesByCustomOrder } from "./watchHelpers";
 
 export function useWatches(cloudUser: User | null, showToast: (message: string) => void, confirmAction: (message: string) => Promise<boolean>) {
@@ -140,7 +140,7 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
         signedImageUrls = await signWatchImagePaths(imagePaths, cloudUser.id);
       }
 
-      const allImageUrls = normalizeImageUrls(signedImageUrls, null, makeWatchImage(category, id));
+      const allImageUrls = normalizeImageUrls(signedImageUrls, null);
 
       const watch: Watch = {
         id,

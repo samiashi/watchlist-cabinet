@@ -48,18 +48,19 @@ function SharedWishlistRoute({ params }: { params: { token: string } }) {
 }
 
 function CabinetApp() {
-  const { session, authMessage, signInWithGoogle, signOut, isAuthLoading } = useAuth();
+  const { session, authMessage, signInWithGoogle, isAuthLoading } = useAuth();
   const cloudUser = session?.user || null;
   const { toasts, showToast } = useToast();
   const { confirmDialog, setConfirmDialog, confirmAction } = useConfirm();
   const { watches, setWatches, saveWatch, deleteWatch, reorderWatches, handleWatchFormSubmit, isSavingWatch } = useWatches(cloudUser, showToast, confirmAction);
   const { filters, setFilters, updateFilters, summary, filteredWatches } = useFilters(watches);
+  const cloudUserId = cloudUser?.id || null;
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, editingId: null });
   const [previewWatch, setPreviewWatch] = useState<PreviewState | null>(null);
   const [isSharing, setIsSharing] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isCloudLoading, setIsCloudLoading] = useState(isSupabaseConfigured);
+  const [loadedCloudUserId, setLoadedCloudUserId] = useState<string | null>(null);
   const [cloudLoadError, setCloudLoadError] = useState("");
   const [cloudRetry, setCloudRetry] = useState(0);
 
@@ -89,7 +90,10 @@ function CabinetApp() {
 
   useEffect(() => {
     if (!isLoaded || !cloudUser || !isSupabaseConfigured) {
-      if (!cloudUser) setIsCloudLoading(false);
+      if (!cloudUser) {
+        setLoadedCloudUserId(null);
+        setIsCloudLoading(false);
+      }
       return;
     }
 
@@ -101,6 +105,7 @@ function CabinetApp() {
       .then((snapshot) => {
         if (!active) return;
         setWatches(snapshot.watches);
+        setLoadedCloudUserId(cloudUser.id);
         setCloudLoadError("");
         setIsCloudLoading(false);
       })
@@ -114,7 +119,7 @@ function CabinetApp() {
     return () => {
       active = false;
     };
-  }, [cloudUser, isLoaded, cloudRetry]);
+  }, [cloudUserId, isLoaded, cloudRetry]);
 
   useEffect(() => {
     if (!isLoaded || isSupabaseConfigured) return;
@@ -146,17 +151,6 @@ function CabinetApp() {
 
   function closeDrawer() {
     setDrawer({ open: false, editingId: null });
-  }
-
-  async function handleSignOut() {
-    setIsSigningOut(true);
-    try {
-      await signOut();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Could not sign out. Try again.");
-    } finally {
-      setIsSigningOut(false);
-    }
   }
 
   useEffect(() => {
@@ -191,7 +185,7 @@ function CabinetApp() {
     return <CloudLoadError message={cloudLoadError} onRetry={() => setCloudRetry((value) => value + 1)} />;
   }
 
-  if (isSupabaseConfigured && cloudUser && isCloudLoading) {
+  if (isSupabaseConfigured && cloudUser && isCloudLoading && loadedCloudUserId !== cloudUser.id) {
     return <LoadingScreen />;
   }
 
@@ -201,13 +195,10 @@ function CabinetApp() {
         <Topbar
           filters={filters}
           canShare={Boolean(cloudUser)}
-          canSignOut={Boolean(cloudUser)}
           isSharing={isSharing}
-          isSigningOut={isSigningOut}
           summary={summary}
           onAdd={() => openDrawer()}
           onShare={shareWishlist}
-          onSignOut={handleSignOut}
           onQueryChange={(query) => updateFilters({ query })}
         />
         <MobileSummary summary={summary} />

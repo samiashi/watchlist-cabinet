@@ -1,7 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase, supabaseUrl } from "./supabase";
 import { maxWatchImages, movements, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./types";
-import { getStorageImagePath, isStorageImageUrl, makeWatchImage, normalizeAllImagePaths, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
+import { getStorageImagePath, isGeneratedWatchImage, isStorageImageUrl, normalizeAllImagePaths, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
 
 const watchImageBucket = "watch-images";
 const signedImageExpiresIn = 60 * 60;
@@ -210,10 +210,10 @@ export async function loadSharedWishlist(token: string): Promise<Watch[]> {
 
 function fromWatchRow(row: WatchRow, index: number, options: WatchRowOptions = {}): Watch {
   const rawImageUrls = normalizeImageUrls(row.image_urls, row.image_url);
-  const externalImageUrls = rawImageUrls.filter((url) => options.keepStorageUrls || !isStorageImageUrl(url));
+  const externalImageUrls = rawImageUrls.filter((url) => !isGeneratedWatchImage(url) && (options.keepStorageUrls || !isStorageImageUrl(url)));
   const legacyStoragePaths = options.keepStorageUrls ? [] : rawImageUrls.map(getStorageImagePath).filter(Boolean);
   const imagePaths = normalizeImagePaths(row.image_paths, legacyStoragePaths);
-  const imageUrls = normalizeImageUrls(externalImageUrls, null, makeWatchImage(row.category, index));
+  const imageUrls = normalizeImageUrls(externalImageUrls, null);
 
   return {
     id: row.id,
@@ -226,7 +226,7 @@ function fromWatchRow(row: WatchRow, index: number, options: WatchRowOptions = {
     price: Number(row.price) || 0,
     referenceNumber: row.reference_number || "",
     sourceUrl: row.source_url,
-    imageUrl: imageUrls[0],
+    imageUrl: imageUrls[0] || "",
     imageUrls,
     imagePaths,
     displayOrder: normalizeDisplayOrder(row.display_order, index),
@@ -240,6 +240,7 @@ function toWatchRow(user: User, watch: Watch): WatchRow {
   const legacyStoragePaths = rawImageUrls.map(getStorageImagePath).filter(Boolean);
   const imageUrls = rawImageUrls
     .filter((url) => !url.startsWith("data:"))
+    .filter((url) => !isGeneratedWatchImage(url))
     .filter((url) => !isStorageImageUrl(url))
     .slice(0, maxWatchImages);
   const imagePaths = normalizeImagePaths(watch.imagePaths, legacyStoragePaths).filter((path) => isUserImagePath(path, user.id));
@@ -296,11 +297,11 @@ async function withSignedStorageImages(watches: Watch[], ownerId: string) {
       .filter((path) => isUserImagePath(path, ownerId))
       .map((path) => signedUrlMap.get(path) || "")
       .filter(Boolean);
-    const imageUrls = normalizeImageUrls([...externalUrls, ...signedWatchUrls], null, makeWatchImage(watch.category, watch.id));
+    const imageUrls = normalizeImageUrls([...externalUrls, ...signedWatchUrls], null);
 
     return {
       ...watch,
-      imageUrl: imageUrls[0],
+      imageUrl: imageUrls[0] || "",
       imageUrls
     };
   });
