@@ -1,14 +1,4 @@
-import {
-  formatCurrency as _formatCurrency,
-  formatWatchCount as _formatWatchCount,
-  normalizeUrl as _normalizeUrl,
-  getDomain as _getDomain
-} from "../shared/utils.js";
-
-export const formatCurrency: (value: unknown) => string = _formatCurrency;
-export const formatWatchCount: (value: unknown) => string = _formatWatchCount;
-export const normalizeUrl: (value: unknown) => string = _normalizeUrl;
-export const getDomain: (value: unknown) => string = _getDomain;
+export { formatCurrency, formatWatchCount, normalizeUrl, getDomain } from "../shared/utils";
 
 export function sum(values: number[]) {
   return values.reduce((total, value) => total + value, 0);

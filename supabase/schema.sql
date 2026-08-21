@@ -318,3 +318,43 @@ $$;
 
 revoke all on function public.get_shared_wishlist(uuid) from public;
 grant execute on function public.get_shared_wishlist(uuid) to anon, authenticated;
+
+create or replace function public.set_watch_display_order(orders jsonb)
+returns void
+language sql
+volatile
+set search_path = public
+as $$
+  update public.watches as watch
+  set
+    display_order = coalesce((item->>'display_order')::int, 1000),
+    updated_at = now()
+  from jsonb_array_elements(orders) as item
+  where item ? 'id'
+    and watch.id::text = item->>'id'
+    and watch.user_id = (select auth.uid());
+$$;
+
+revoke all on function public.set_watch_display_order(jsonb) from public;
+grant execute on function public.set_watch_display_order(jsonb) to authenticated;
+
+create or replace function public.rotate_share_link()
+returns uuid
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  rotated_token uuid := gen_random_uuid();
+begin
+  insert into public.watch_share_links (user_id, token)
+  values ((select auth.uid()), rotated_token)
+  on conflict (user_id)
+  do update set token = excluded.token, updated_at = now();
+
+  return rotated_token;
+end $$;
+
+revoke all on function public.rotate_share_link() from public;
+grant execute on function public.rotate_share_link() to authenticated;

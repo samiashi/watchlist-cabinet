@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Route, Switch } from "wouter";
-import { getOrCreateShareLink, loadCloudSnapshot } from "./lib/cloudStorage";
+import { deleteShareLink, getOrCreateShareLink, loadCloudSnapshot, rotateShareLink } from "./lib/cloudStorage";
 import { isSupabaseConfigured } from "./lib/supabase";
 import type { Watch } from "./lib/types";
 import { useAuth } from "./hooks/useAuth";
@@ -126,7 +126,7 @@ function CabinetApp() {
     saveLocalSnapshot({ watches, filters });
   }, [filters, isLoaded, watches]);
 
-  async function shareWishlist() {
+  async function copyWishlistLink() {
     if (!cloudUser) {
       showToast("Sign in with Google to share your wishlist.");
       return;
@@ -142,6 +142,39 @@ function CabinetApp() {
       showToast(error instanceof Error ? error.message : "Wishlist link was not created.");
     } finally {
       setIsSharing(false);
+    }
+  }
+
+  async function rotateWishlistLink() {
+    if (!cloudUser) return;
+
+    const confirmed = await confirmAction("Create a new wishlist link? The current link will stop working.");
+    if (!confirmed) return;
+
+    setIsSharing(true);
+    try {
+      const token = await rotateShareLink(cloudUser);
+      const url = `${getAppBaseUrl()}/share/${token}`;
+      const copied = await copyShareUrl(url);
+      showToast(copied ? "New wishlist link copied." : "New wishlist link is ready.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Wishlist link was not rotated.");
+    } finally {
+      setIsSharing(false);
+    }
+  }
+
+  async function disableWishlistLink() {
+    if (!cloudUser) return;
+
+    const confirmed = await confirmAction("Turn off the wishlist link? Anyone with the link will lose access.");
+    if (!confirmed) return;
+
+    try {
+      await deleteShareLink(cloudUser);
+      showToast("Wishlist link turned off.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Wishlist link was not removed.");
     }
   }
 
@@ -198,7 +231,9 @@ function CabinetApp() {
           isSharing={isSharing}
           summary={summary}
           onAdd={() => openDrawer()}
-          onShare={shareWishlist}
+          onCopyShareLink={copyWishlistLink}
+          onRotateShareLink={rotateWishlistLink}
+          onDisableShareLink={disableWishlistLink}
           onQueryChange={(query) => updateFilters({ query })}
         />
         <MobileSummary summary={summary} />

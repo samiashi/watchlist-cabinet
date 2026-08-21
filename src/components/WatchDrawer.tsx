@@ -47,7 +47,7 @@ export function WatchDrawer({
   const watch = editing || {
     brand: "",
     model: "",
-    category: "Dress",
+    category: "Daily",
     status: filters.tab === "owned" ? "owned" : "wishlist",
     movement: "Automatic",
     caseSize: "",

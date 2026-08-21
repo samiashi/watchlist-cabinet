@@ -1,22 +1,14 @@
-import {
-  makeWatchImage as _makeWatchImage,
-  normalizeImageUrls as _normalizeImageUrls,
-  getStorageImagePath as _getStorageImagePath,
-  normalizeImagePaths as _normalizeImagePaths,
-  normalizeAllImagePaths as _normalizeAllImagePaths
-} from "../shared/utils.js";
+import { makeWatchImage as makeWatchImageSvg, normalizeImageUrls as normalizeImageUrlSources, getStorageImagePath, normalizeImagePaths, normalizeAllImagePaths } from "../shared/utils";
 import type { WatchCategory } from "./types";
 
-export const makeWatchImage: (category: WatchCategory, seed?: string | number) => string = _makeWatchImage as (category: WatchCategory, seed?: string | number) => string;
-export const getStorageImagePath: (value: unknown) => string = _getStorageImagePath;
-export const normalizeImagePaths: (...sources: unknown[]) => string[] = _normalizeImagePaths;
-export const normalizeAllImagePaths: (...sources: unknown[]) => string[] = _normalizeAllImagePaths;
+export { getStorageImagePath, normalizeImagePaths, normalizeAllImagePaths };
+export const makeWatchImage: (category: WatchCategory | string, seed?: string | number) => string = makeWatchImageSvg;
 
-export function normalizeImageUrls(imageUrls: unknown, imageUrl: unknown) {
-  const args: unknown[] = [];
-  if (Array.isArray(imageUrls)) args.push(imageUrls);
-  if (typeof imageUrl === "string" && imageUrl.trim()) args.push(imageUrl);
-  return _normalizeImageUrls(...args);
+export function normalizeImageUrls(imageUrls: unknown, imageUrl: unknown): string[] {
+  const sources: unknown[] = [];
+  if (Array.isArray(imageUrls)) sources.push(imageUrls);
+  if (typeof imageUrl === "string" && imageUrl.trim()) sources.push(imageUrl);
+  return normalizeImageUrlSources(...sources);
 }
 
 export function getWatchImages(watch: {

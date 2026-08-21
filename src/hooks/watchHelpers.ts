@@ -60,7 +60,7 @@ export function sortWatchesByCustomOrder(watches: Watch[]) {
   return [...watches].sort(compareByCustomOrder);
 }
 
-function compareByCustomOrder(a: Watch, b: Watch) {
+export function compareByCustomOrder(a: Watch, b: Watch) {
   const orderDifference = normalizeWatchDisplayOrder(a) - normalizeWatchDisplayOrder(b);
   return orderDifference || new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
 }

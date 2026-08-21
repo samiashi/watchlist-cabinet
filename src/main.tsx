@@ -10,11 +10,3 @@ createRoot(document.getElementById("root") as HTMLElement).render(
     <App />
   </StrictMode>
 );
-
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("/sw.js").catch(() => {
-      // A service worker is an optional enhancement; the app remains fully usable without it.
-    });
-  });
-}

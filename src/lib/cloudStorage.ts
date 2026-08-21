@@ -1,10 +1,16 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase, supabaseUrl } from "./supabase";
 import { maxWatchImages, movements, type CabinetSnapshot, type Watch, type WatchCategory, type WatchMovement, type WatchStatus } from "./types";
+import {
+  getSignedUrl,
+  isMissingDisplayOrderError,
+  isMissingRpcError,
+  isUserImagePath,
+  signedImageExpiresIn,
+  toAbsoluteStorageUrl,
+  watchImageBucket
+} from "../shared/watchStorage";
 import { getStorageImagePath, isGeneratedWatchImage, isStorageImageUrl, normalizeAllImagePaths, normalizeImagePaths, normalizeImageUrls } from "./watchImages";
-
-const watchImageBucket = "watch-images";
-const signedImageExpiresIn = 60 * 60;
 
 interface WatchRow {
   id: string;
@@ -87,6 +93,24 @@ export async function upsertCloudWatch(user: User, watch: Watch) {
 export async function updateCloudWatchOrder(user: User, watches: Watch[]) {
   const client = supabase;
   if (!client) throw new Error("Supabase is not configured.");
+
+  const orders = watches.map((watch, index) => ({
+    id: watch.id,
+    display_order: getDisplayOrderForIndex(index)
+  }));
+
+  const { error } = await client.rpc("set_watch_display_order", { orders });
+
+  if (!isMissingRpcError(error, "set_watch_display_order")) {
+    if (error) throw error;
+    return;
+  }
+
+  await updateCloudWatchOrderRowByRow(client, user, watches);
+}
+
+async function updateCloudWatchOrderRowByRow(client: typeof supabase, user: User, watches: Watch[]) {
+  if (!client) return;
 
   const updatedAt = new Date().toISOString();
   const previousOrders = new Map(watches.map((watch) => [watch.id, watch.displayOrder]));
@@ -192,6 +216,37 @@ export async function getOrCreateShareLink(user: User) {
 
   if (created.error) throw created.error;
   return (created.data as ShareLinkRow).token;
+}
+
+export async function rotateShareLink(user: User) {
+  const client = supabase;
+  if (!client) throw new Error("Supabase is not configured.");
+
+  const rotated = await client.rpc("rotate_share_link");
+  const token = typeof rotated.data === "string" ? rotated.data : "";
+
+  if (!rotated.error && token) return token;
+  if (!isMissingRpcError(rotated.error, "rotate_share_link")) {
+    throw rotated.error || new Error("Wishlist link could not be rotated.");
+  }
+
+  await client.from("watch_share_links").delete().eq("user_id", user.id);
+
+  const created = await client
+    .from("watch_share_links")
+    .insert({ user_id: user.id })
+    .select("token")
+    .single();
+
+  if (created.error) throw created.error;
+  return (created.data as ShareLinkRow).token;
+}
+
+export async function deleteShareLink(user: User) {
+  if (!supabase) throw new Error("Supabase is not configured.");
+
+  const { error } = await supabase.from("watch_share_links").delete().eq("user_id", user.id);
+  if (error) throw error;
 }
 
 export async function loadSharedWishlist(token: string): Promise<Watch[]> {
@@ -329,23 +384,6 @@ async function loadSharedWishlistFromApi(token: string) {
   }
 }
 
-function getSignedUrl(value: unknown) {
-  if (!value || typeof value !== "object") return "";
-  const item = value as { signedUrl?: unknown; signedURL?: unknown };
-  return typeof item.signedUrl === "string" ? item.signedUrl : typeof item.signedURL === "string" ? item.signedURL : "";
-}
-
-function toAbsoluteStorageUrl(value: string, baseUrl: string | undefined) {
-  const url = value.trim();
-  if (!url) return "";
-  if (/^https?:\/\//i.test(url)) return url;
-  if (!baseUrl) return url;
-
-  const base = baseUrl.replace(/\/+$/, "");
-  const path = url.replace(/^\/+/, "");
-  return `${base}/${path.startsWith("storage/v1/") ? path : `storage/v1/${path}`}`;
-}
-
 function cleanFileName(value: string) {
   const cleaned = value
     .toLowerCase()
@@ -368,14 +406,4 @@ export function getDisplayOrderForIndex(index: number) {
 function normalizeDisplayOrder(value: unknown, index: number) {
   const order = Number(value);
   return Number.isFinite(order) ? order : getDisplayOrderForIndex(index);
-}
-
-function isMissingDisplayOrderError(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-  const item = error as { code?: unknown; message?: unknown };
-  return item.code === "42703" || String(item.message || "").toLowerCase().includes("display_order");
-}
-
-function isUserImagePath(path: string, userId: string) {
-  return path.startsWith(`${userId}/`);
 }

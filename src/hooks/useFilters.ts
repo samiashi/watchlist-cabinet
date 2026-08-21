@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { getDomain } from "../lib/formatters";
 import type { CabinetFilters, CabinetSummary, Watch } from "../lib/types";
+import { compareByCustomOrder, formatCaseSize } from "./watchHelpers";
 
 const emptyFilters: CabinetFilters = { tab: "all", query: "", sort: "relevance" };
 
@@ -61,22 +62,6 @@ function compareWatches(a: Watch, b: Watch, sort: CabinetFilters["sort"], query:
   }
 
   return getWatchRelevance(b, query) - getWatchRelevance(a, query) || compareByCustomOrder(a, b);
-}
-
-function compareByCustomOrder(a: Watch, b: Watch) {
-  const orderDifference = normalizeWatchDisplayOrder(a) - normalizeWatchDisplayOrder(b);
-  return orderDifference || new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-}
-
-function normalizeWatchDisplayOrder(watch: Watch) {
-  const order = Number(watch.displayOrder);
-  return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
-}
-
-function formatCaseSize(value: number) {
-  const size = Number(value) || 0;
-  if (!size) return "";
-  return `${Number.isInteger(size) ? size : size.toFixed(1)} mm`;
 }
 
 function getWatchRelevance(watch: Watch, query: string) {

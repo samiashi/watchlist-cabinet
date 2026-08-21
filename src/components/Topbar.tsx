@@ -1,13 +1,16 @@
-import { BadgeCheck, Loader2, Plus, Search, Share2, ShoppingBag, X } from "lucide-react";
+import { BadgeCheck, Plus, Search, ShoppingBag, X } from "lucide-react";
 import { formatCurrency, formatWatchCount } from "../lib/formatters";
 import type { CabinetFilters, CabinetSummary } from "../lib/types";
+import { ShareMenu } from "./ShareMenu";
 
 export function Topbar({
   filters,
   canShare,
   isSharing,
   onAdd,
-  onShare,
+  onCopyShareLink,
+  onRotateShareLink,
+  onDisableShareLink,
   onQueryChange,
   summary
 }: {
@@ -15,10 +18,14 @@ export function Topbar({
   canShare: boolean;
   isSharing: boolean;
   onAdd: () => void;
-  onShare: () => void;
+  onCopyShareLink: () => Promise<void>;
+  onRotateShareLink: () => Promise<void>;
+  onDisableShareLink: () => Promise<void>;
   onQueryChange: (query: string) => void;
   summary: CabinetSummary;
 }) {
+  const shareMenuProps = { isWorking: isSharing, onCopy: onCopyShareLink, onRotate: onRotateShareLink, onDisable: onDisableShareLink };
+
   return (
     <header className="topbar">
       <div className="topbar-heading">
@@ -38,11 +45,7 @@ export function Topbar({
           </div>
         </div>
         <div className="topbar-mobile-actions">
-          {canShare ? (
-            <button className="button button-icon mobile-share-button" type="button" onClick={onShare} disabled={isSharing} aria-label="Share wishlist">
-              {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
-            </button>
-          ) : null}
+          {canShare ? <ShareMenu variant="icon" {...shareMenuProps} /> : null}
           <button className="button button-primary mobile-add-button" type="button" onClick={onAdd}>
             <Plus size={17} />
             <span>Add</span>
@@ -67,12 +70,7 @@ export function Topbar({
             </button>
           ) : null}
         </label>
-        {canShare ? (
-          <button className="button topbar-desktop-action" type="button" onClick={onShare} disabled={isSharing}>
-            {isSharing ? <Loader2 className="spin" size={17} /> : <Share2 size={17} />}
-            <span>Share</span>
-          </button>
-        ) : null}
+        {canShare ? <ShareMenu variant="full" {...shareMenuProps} /> : null}
         <button className="button button-primary topbar-desktop-action" type="button" onClick={onAdd}>
           <Plus size={18} />
           <span>Add watch</span>

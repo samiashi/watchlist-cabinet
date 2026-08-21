@@ -1,6 +1,14 @@
-export const maxWatchImages = 5;
+import { maxWatchImages, type WatchCategory } from "../lib/types";
 
-export const categoryThemes = {
+export interface WatchCategoryTheme {
+  bg: string;
+  case: string;
+  dial: string;
+  strap: string;
+  detail: string;
+}
+
+export const categoryThemes: Record<WatchCategory, WatchCategoryTheme> = {
   Chronograph: { bg: "#1a191b", case: "#8d9294", dial: "#23272a", strap: "#111317", detail: "#d66b7e" },
   Daily: { bg: "#17191d", case: "#7c838a", dial: "#20252a", strap: "#26221f", detail: "#7fb4cb" },
   Diver: { bg: "#101d24", case: "#7794a1", dial: "#102a34", strap: "#121d24", detail: "#d4e8ef" },
@@ -11,7 +19,7 @@ export const categoryThemes = {
   Vintage: { bg: "#1d1914", case: "#b89462", dial: "#efe0c1", strap: "#241b16", detail: "#7f5d3b" }
 };
 
-export function hashSeed(seed) {
+export function hashSeed(seed: string | number): number {
   const str = String(seed);
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -21,8 +29,8 @@ export function hashSeed(seed) {
   return Math.abs(hash);
 }
 
-export function makeWatchImage(category, seed = 0) {
-  const theme = categoryThemes[category] || categoryThemes.Daily;
+export function makeWatchImage(category: WatchCategory | string, seed: string | number = 0): string {
+  const theme = categoryThemes[category as WatchCategory] || categoryThemes.Daily;
   const rotation = hashSeed(seed) % 12;
   const accentX = 58 + rotation;
   const isChronograph = category === "Chronograph";
@@ -57,13 +65,13 @@ export function makeWatchImage(category, seed = 0) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-export function normalizeUrl(value) {
+export function normalizeUrl(value: unknown): string {
   const raw = String(value || "").trim();
   if (!raw) return "";
   return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
 }
 
-export function getDomain(value) {
+export function getDomain(value: unknown): string {
   try {
     return new URL(normalizeUrl(value)).hostname.replace(/^www\./, "");
   } catch {
@@ -71,7 +79,7 @@ export function getDomain(value) {
   }
 }
 
-export function formatCurrency(value) {
+export function formatCurrency(value: unknown): string {
   const amount = new Intl.NumberFormat("en-AE", {
     maximumFractionDigits: 0
   }).format(Number(value) || 0);
@@ -79,12 +87,12 @@ export function formatCurrency(value) {
   return `AED ${amount}`;
 }
 
-export function formatWatchCount(value) {
+export function formatWatchCount(value: unknown): string {
   const count = Number(value) || 0;
   return `${count} ${count === 1 ? "watch" : "watches"}`;
 }
 
-export function escapeHtml(value) {
+export function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -93,11 +101,11 @@ export function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-export function escapeMarkdown(value) {
+export function escapeMarkdown(value: unknown): string {
   return String(value ?? "").replace(/[\\`*_{}[\]()#+\-.!|<>]/g, "\\$&");
 }
 
-export function getStorageImagePath(value) {
+export function getStorageImagePath(value: unknown): string {
   if (typeof value !== "string") return "";
 
   try {
@@ -117,9 +125,9 @@ export function getStorageImagePath(value) {
   }
 }
 
-export function normalizeImageUrls(...sources) {
-  const urls = [];
-  const seen = new Set();
+export function normalizeImageUrls(...sources: unknown[]): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
 
   sources.forEach((source) => {
     const values = Array.isArray(source) ? source : [source];
@@ -135,17 +143,17 @@ export function normalizeImageUrls(...sources) {
   return urls.slice(0, maxWatchImages);
 }
 
-export function normalizeImagePaths(...sources) {
+export function normalizeImagePaths(...sources: unknown[]): string[] {
   return collectImagePaths(maxWatchImages, ...sources);
 }
 
-export function normalizeAllImagePaths(...sources) {
+export function normalizeAllImagePaths(...sources: unknown[]): string[] {
   return collectImagePaths(Number.POSITIVE_INFINITY, ...sources);
 }
 
-function collectImagePaths(limit, ...sources) {
-  const paths = [];
-  const seen = new Set();
+function collectImagePaths(limit: number, ...sources: unknown[]): string[] {
+  const paths: string[] = [];
+  const seen = new Set<string>();
 
   sources.forEach((source) => {
     const values = Array.isArray(source) ? source : [source];

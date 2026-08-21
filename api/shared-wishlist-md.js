@@ -1,20 +1,8 @@
-import { loadSharedWishlist, renderSharedWishlistMarkdown, getRequestBaseUrl, sendSharedWishlistError } from "../server/sharedWishlist.js";
+import { getRequestBaseUrl, renderSharedWishlistMarkdown, respondWithSharedWishlist } from "../server/sharedWishlist.js";
 
 export default async function handler(request, response) {
-  response.setHeader("Cache-Control", "no-store");
-
-  if (request.method !== "GET") {
-    response.setHeader("Allow", "GET");
-    response.status(405).send("Method not allowed.\n");
-    return;
-  }
-
-  try {
-    const data = await loadSharedWishlist(request.query?.token);
-    const baseUrl = getRequestBaseUrl(request);
+  await respondWithSharedWishlist(request, response, "json", (data) => {
     response.setHeader("Content-Type", "text/markdown; charset=utf-8");
-    response.status(200).send(renderSharedWishlistMarkdown(data, baseUrl));
-  } catch (error) {
-    sendSharedWishlistError(response, error);
-  }
+    response.status(200).send(renderSharedWishlistMarkdown(data, getRequestBaseUrl(request)));
+  });
 }

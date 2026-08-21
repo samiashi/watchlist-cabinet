@@ -30,6 +30,58 @@
   display: none;
 }
 
+.share-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.share-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  min-width: 186px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    var(--surface-raised);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(24px) saturate(1.2);
+  display: grid;
+  gap: 2px;
+}
+
+.share-menu-popover button {
+  height: 36px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 560;
+  text-align: left;
+  cursor: pointer;
+}
+
+.share-menu-popover button:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.share-menu-popover button svg {
+  color: var(--muted);
+}
+
+.share-menu-popover .share-menu-danger,
+.share-menu-popover .share-menu-danger svg {
+  color: var(--red);
+}
+
 .page-title {
   margin: 0;
   color: var(--ink);

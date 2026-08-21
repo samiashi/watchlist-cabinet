@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, SetStateAction } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   deleteCloudWatch,
@@ -16,9 +16,18 @@ import { normalizeImagePaths, normalizeImageUrls } from "../lib/watchImages";
 import { formatCaseSize, getFormImageFiles, getFormImageOrder, getFormImageUploadIds, getStoredImageItems, normalizeMovement, sortWatchesByCustomOrder } from "./watchHelpers";
 
 export function useWatches(cloudUser: User | null, showToast: (message: string) => void, confirmAction: (message: string) => Promise<boolean>) {
-  const [watches, setWatches] = useState<Watch[]>([]);
+  const [watches, setWatchesState] = useState<Watch[]>([]);
+  const watchesRef = useRef<Watch[]>(watches);
   const [isSavingWatch, setIsSavingWatch] = useState(false);
   const isSavingWatchRef = useRef(false);
+
+  function setWatches(next: SetStateAction<Watch[]>) {
+    setWatchesState((current) => {
+      const resolved = typeof next === "function" ? next(current) : next;
+      watchesRef.current = resolved;
+      return resolved;
+    });
+  }
 
   async function saveWatch(watch: Watch) {
     const previous = watches;
@@ -162,6 +171,9 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
       };
 
       await saveWatch(watch);
+      if (!existing && cloudUser && watch.displayOrder <= 0) {
+        rebalanceWatchOrders();
+      }
       if (removedImagePaths.length && cloudUser) {
         void deleteWatchImages(removedImagePaths, cloudUser.id).catch((error) => {
           console.warn("Could not delete removed watch images", error);
@@ -180,6 +192,16 @@ export function useWatches(cloudUser: User | null, showToast: (message: string) 
       isSavingWatchRef.current = false;
       setIsSavingWatch(false);
     }
+  }
+
+  function rebalanceWatchOrders() {
+    if (!cloudUser) return;
+
+    const rebasedWatches = normalizeWatchDisplayOrders(sortWatchesByCustomOrder(watchesRef.current));
+    setWatches(rebasedWatches);
+    void updateCloudWatchOrder(cloudUser, rebasedWatches).catch((error) => {
+      console.warn("Could not save the rebalanced watch order", error);
+    });
   }
 
   return { watches, setWatches, saveWatch, deleteWatch, reorderWatches, handleWatchFormSubmit, isSavingWatch };

@@ -10,11 +10,23 @@ import {
   normalizeImagePaths,
   normalizeAllImagePaths,
   getStorageImagePath
-} from "../src/shared/utils.js";
+} from "../src/shared/utils";
+import {
+  getSignedUrl,
+  isMissingDisplayOrderError,
+  isUserImagePath,
+  signedImageExpiresIn,
+  toAbsoluteStorageUrl,
+  watchImageBucket
+} from "../src/shared/watchStorage";
 
-const watchImageBucket = "watch-images";
-const signedImageExpiresIn = 60 * 60;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RATE_LIMIT_WINDOW_MS = 60000;
+const RATE_LIMIT_MAX_REQUESTS = 30;
+const RATE_LIMIT_PRUNE_SIZE = 2000;
+const rateLimitHits = new Map();
+
+export const SHARED_WISHLIST_CACHE_CONTROL = "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
 
 export class SharedWishlistError extends Error {
   constructor(statusCode, message) {
@@ -106,6 +118,8 @@ export function sendSharedWishlistError(response, error, contentType = "json") {
   const statusCode = error instanceof SharedWishlistError ? error.statusCode : 500;
   const message = error instanceof Error ? error.message : "Shared wishlist could not be loaded.";
 
+  response.setHeader("Cache-Control", "no-store");
+
   if (contentType === "html") {
     response.status(statusCode).send(renderErrorHtml(statusCode, message));
     return;
@@ -117,6 +131,56 @@ export function sendSharedWishlistError(response, error, contentType = "json") {
   }
 
   response.status(statusCode).json({ error: message });
+}
+
+export function enforceSharedWishlistRateLimit(key) {
+  const bucketKey = String(key || "").slice(0, 300);
+  const windowStart = Date.now() - RATE_LIMIT_WINDOW_MS;
+  const hits = (rateLimitHits.get(bucketKey) || []).filter((timestamp) => timestamp > windowStart);
+
+  if (hits.length >= RATE_LIMIT_MAX_REQUESTS) {
+    rateLimitHits.set(bucketKey, hits);
+    throw new SharedWishlistError(429, "Too many requests. Try again soon.");
+  }
+
+  hits.push(Date.now());
+  rateLimitHits.set(bucketKey, hits);
+
+  if (rateLimitHits.size > RATE_LIMIT_PRUNE_SIZE) pruneRateLimits(windowStart);
+}
+
+function pruneRateLimits(windowStart) {
+  for (const [key, timestamps] of rateLimitHits) {
+    const recent = timestamps.filter((timestamp) => timestamp > windowStart);
+    if (recent.length) rateLimitHits.set(key, recent);
+    else rateLimitHits.delete(key);
+  }
+}
+
+export function getSharedWishlistRequestKey(request) {
+  const forwardedFor = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  const ip = forwardedFor || request.socket?.remoteAddress || "unknown";
+  return `${ip}|${request.query?.token || ""}`;
+}
+
+export async function respondWithSharedWishlist(request, response, errorContentType, renderSuccess) {
+  if (request.method !== "GET") {
+    response.setHeader("Allow", "GET");
+    response.setHeader("Cache-Control", "no-store");
+    response.status(405);
+    if (errorContentType === "html" || errorContentType === "markdown") response.send("Method not allowed.\n");
+    else response.json({ error: "Method not allowed." });
+    return;
+  }
+
+  try {
+    enforceSharedWishlistRateLimit(getSharedWishlistRequestKey(request));
+    const data = await loadSharedWishlist(request.query?.token);
+    response.setHeader("Cache-Control", SHARED_WISHLIST_CACHE_CONTROL);
+    await renderSuccess(data);
+  } catch (error) {
+    sendSharedWishlistError(response, error, errorContentType);
+  }
 }
 
 export function getRequestBaseUrl(request) {
@@ -240,11 +304,6 @@ function toSharedWatch(row, signedUrlMap, ownerId) {
   };
 }
 
-function isMissingDisplayOrderError(error) {
-  if (!error || typeof error !== "object") return false;
-  return error.code === "42703" || String(error.message || "").toLowerCase().includes("display_order");
-}
-
 async function getSignedImageUrlMap(supabase, supabaseUrl, rows, ownerId) {
   const allPaths = normalizeAllImagePaths(rows.flatMap((row) => getStoragePaths(row, ownerId))).filter((path) => isUserImagePath(path, ownerId));
   const signedUrlMap = new Map();
@@ -275,30 +334,8 @@ function getStoragePaths(row, ownerId) {
   return normalizeImagePaths(row.image_paths, legacyPaths).filter((path) => isUserImagePath(path, ownerId));
 }
 
-function isUserImagePath(path, ownerId) {
-  return typeof ownerId === "string" && path.startsWith(`${ownerId}/`);
-}
-
 function escapeMarkdownUrl(value) {
   return String(value || "").replace(/[\\<>]/g, "\\$&");
-}
-
-function getSignedUrl(value) {
-  if (!value || typeof value !== "object") return "";
-  if (typeof value.signedUrl === "string") return value.signedUrl;
-  if (typeof value.signedURL === "string") return value.signedURL;
-  return "";
-}
-
-function toAbsoluteStorageUrl(value, baseUrl) {
-  const url = String(value || "").trim();
-  if (!url) return "";
-  if (/^https?:\/\//i.test(url)) return url;
-  if (!baseUrl) return url;
-
-  const base = baseUrl.replace(/\/+$/, "");
-  const path = url.replace(/^\/+/, "");
-  return `${base}/${path.startsWith("storage/v1/") ? path : `storage/v1/${path}`}`;
 }
 
 function normalizeText(value) {
